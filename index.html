@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrôleur Farmbot CNC</title>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --danger: #e74c3c;
+            --accent: #3498db;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar de configuration */
+        .sidebar {
+            width: 320px;
+            background-color: var(--dark);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar h2, .sidebar h3 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.3s;
+            margin-top: 5px;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: #27ae60; }
+        
+        .btn-accent { background-color: var(--accent); color: white; }
+        .btn-accent:hover { background-color: #2980b9; }
+
+        .btn-danger { background-color: var(--danger); color: white; }
+
+        /* Zone des plantes */
+        .plant-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .plant-option {
+            background: rgba(255,255,255,0.1);
+            padding: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            text-align: center;
+        }
+
+        .plant-option.active {
+            border-color: var(--primary);
+            background: rgba(46, 204, 113, 0.2);
+        }
+
+        .color-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+            color: var(--dark);
+        }
+
+        /* Canvas Container */
+        .canvas-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            cursor: crosshair;
+        }
+
+        /* Console / Logs */
+        .console-log {
+            height: 150px;
+            background: black;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            overflow-y: auto;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        /* Video Feed (Hidden by default unless debugging) */
+        #weedingVideo {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            border: 2px solid var(--danger);
+            border-radius: 4px;
+            display: none; /* Affiché lors de l'activation */
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            background: #eee;
+        }
+        .status-connected { background: #d4edda; color: #155724; }
+        .status-disconnected { background: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Configuration -->
+    <div class="sidebar">
+        <h2>🌱 FarmBot Config</h2>
+        
+        <h3>Dimensions Zone (mm)</h3>
+        <div class="input-group">
+            <label>Longueur (X)</label>
+            <input type="number" id="lengthMm" value="1000">
+        </div>
+        <div class="input-group">
+            <label>Largeur (Y)</label>
+            <input type="number" id="widthMm" value="500">
+        </div>
+
+        <h3>Grille (Cases)</h3>
+        <div class="input-group">
+            <label>Cases Axe X</label>
+            <input type="number" id="gridX" value="5">
+        </div>
+        <div class="input-group">
+            <label>Cases Axe Y</label>
+            <input type="number" id="gridY" value="3">
+        </div>
+        <button class="btn btn-accent" onclick="initGrid()">Générer Grille</button>
+
+        <h3>Plantes (Supports)</h3>
+        <p style="font-size: 0.8em; opacity: 0.8;">Sélectionnez une plante puis cliquez sur la grille.</p>
+        <div class="plant-selector" id="plantSelector">
+            <!-- Généré par JS -->
+        </div>
+
+        <div style="margin-top: auto;">
+            <h3>Connexion CNC</h3>
+            <div id="connectionStatus" class="status-badge status-disconnected">Non connecté</div>
+            <button class="btn btn-accent" id="connectBtn">🔌 Connecter Arduino (USB)</button>
+            <button class="btn btn-primary" id="startBtn" disabled>▶ Démarrer Semis</button>
+            <button class="btn btn-danger" onclick="stopMachine()">🛑 ARRÊT URGENCE</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <div>
+                <span style="font-size: 1.2em; font-weight: bold;">Interface de Pilotage</span>
+            </div>
+            <div class="stats">
+                <span id="surfaceDisplay">Surface totale: 0 m²</span>
+                <span id="cellSurfaceDisplay">Surface/Case: 0 cm²</span>
+            </div>
+            <div>
+                <button class="btn btn-accent" style="width: auto; padding: 5px 15px;" onclick="triggerWeedCheck()">📷 Test Caméra (Désherbage)</button>
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvasWrapper">
+            <canvas id="farmCanvas"></canvas>
+            <video id="weedingVideo" autoplay playsinline muted></video>
+            <!-- Canvas caché pour le traitement d'image -->
+            <canvas id="procCanvas" style="display:none;"></canvas>
+        </div>
+
+        <div class="console-log" id="consoleLog">
+            <div>System ready. Waiting for configuration...</div>
+        </div>
+    </div>
+
+<script>
+    // --- Configuration Globale ---
+    const COLORS = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6']; // Couleurs pour les 6 plantes
+    let plantNames = ["Tomate", "Salade", "Carotte", "Radis", "Basilic", "Épinard"];
+    
+    // État du système
+    let gridState = []; // Stocke l'ID de la plante pour chaque case (x, y)
+    let selectedPlantIndex = 0;
+    let port, writer; // Pour Web Serial API
+    let isConnected = false;
+    let machineBusy = false;
+
+    // Éléments DOM
+    const canvas = document.getElementById('farmCanvas');
+    const ctx = canvas.getContext('2d');
+    const logDiv = document.getElementById('consoleLog');
+    const video = document.getElementById('weedingVideo');
+    const procCanvas = document.getElementById('procCanvas');
+
+    // --- 1. Initialisation & Interface Graphique ---
+
+    function initUI() {
+        const selector = document.getElementById('plantSelector');
+        selector.innerHTML = '';
+        plantNames.forEach((name, index) => {
+            const div = document.createElement('div');
+            div.className = `plant-option ${index === 0 ? 'active' : ''}`;
+            div.innerHTML = `<span class="color-dot" style="background:${COLORS[index]}"></span><input type="text" value="${name}" onchange="updatePlantName(${index}, this.value)" style="width:60px; background:transparent; border:none; color:white;">`;
+            div.onclick = (e) => {
+                if(e.target.tagName === 'INPUT') return;
+                selectPlant(index);
+            };
+            selector.appendChild(div);
+        });
+        initGrid();
+    }
+
+    function updatePlantName(index, val) {
+        plantNames[index] = val;
+    }
+
+    function selectPlant(index) {
+        selectedPlantIndex = index;
+        document.querySelectorAll('.plant-option').forEach((el, i) => {
+            el.classList.toggle('active', i === index);
+        });
+    }
+
+    function initGrid() {
+        const length = parseInt(document.getElementById('lengthMm').value);
+        const width = parseInt(document.getElementById('widthMm').value);
+        const cols = parseInt(document.getElementById('gridX').value);
+        const rows = parseInt(document.getElementById('gridY').value);
+
+        // Calcul des surfaces
+        const totalArea = (length * width) / 1000000; // en m2
+        const cellArea = (length / cols) * (width / rows) / 100; // en cm2
+
+        document.getElementById('surfaceDisplay').innerText = `Surface totale: ${totalArea.toFixed(2)} m²`;
+        document.getElementById('cellSurfaceDisplay').innerText = `Surface/Case: ${cellArea.toFixed(0)} cm²`;
+
+        // Reset Grid Data
+        gridState = [];
+        for(let x=0; x<cols; x++) {
+            gridState[x] = [];
+            for(let y=0; y<rows; y++) {
+                gridState[x][y] = null; // null = vide
+            }
+        }
+
+        resizeCanvas();
+        drawGrid();
+    }
+
+    function resizeCanvas() {
+        const container = document.getElementById('canvasWrapper');
+        canvas.width = container.clientWidth - 40;
+        canvas.height = container.clientHeight - 40;
+    }
+
+    // Dessin de la grille
+    function drawGrid() {
+        const cols = parseInt(document.getElementById('gridX').value);
+        const rows = parseInt(document.getElementById('gridY').value);
+        
+        // Calcul taille cellule pour affichage (garder ratio)
+        const cellW = canvas.width / cols;
+        const cellH = canvas.height / rows;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < rows; y++) {
+                // Fond damier
+                const isEven = (x + y) % 2 === 0;
+                ctx.fillStyle = isEven ? '#f0f0f0' : '#e0e0e0';
+                
+                // Si plante présente
+                if (gridState[x][y] !== null) {
+                    ctx.fillStyle = COLORS[gridState[x][y]] + '80'; // Ajout transparence
+                }
+
+                ctx.fillRect(x * cellW, y * cellH, cellW, cellH);
+                ctx.strokeStyle = '#ccc';
+                ctx.strokeRect(x * cellW, y * cellH, cellW, cellH);
+
+                // Texte (Nom plante ou coordonnées)
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                if(gridState[x][y] !== null) {
+                    ctx.fillText(plantNames[gridState[x][y]], x * cellW + cellW/2, y * cellH + cellH/2);
+                } else {
+                    ctx.fillStyle = '#aaa';
+                    ctx.fillText(`${x},${y}`, x * cellW + cellW/2, y * cellH + cellH/2);
+                }
+            }
+        }
+    }
+
+    // Interaction Souris
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const cols = parseInt(document.getElementById('gridX').value);
+        const rows = parseInt(document.getElementById('gridY').value);
+        const cellW = canvas.width / cols;
+        const cellH = canvas.height / rows;
+
+        const gridX = Math.floor(mouseX / cellW);
+        const gridY = Math.floor(mouseY / cellH);
+
+        if (gridX >= 0 && gridX < cols && gridY >= 0 && gridY < rows) {
+            // Toggle ou set
+            if(gridState[gridX][gridY] === selectedPlantIndex) {
+                gridState[gridX][gridY] = null;
+            } else {
+                gridState[gridX][gridY] = selectedPlantIndex;
+            }
+            drawGrid();
+        }
+    });
+
+    // --- 2. Communication Série (Arduino) ---
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+        if ("serial" in navigator) {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                const textEncoder = new TextEncoderStream();
+                const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+                
+                isConnected = true;
+                document.getElementById('connectionStatus').innerText = "Connecté (USB)";
+                document.getElementById('connectionStatus').className = "status-badge status-connected";
+                document.getElementById('startBtn').disabled = false;
+                log("Port série ouvert. Prêt.");
+            } catch (err) {
+                log("Erreur connexion: " + err);
+            }
+        } else {
+            alert("Web Serial API non supportée par ce navigateur (utilisez Chrome ou Edge). Mode Simulation activé.");
+            // Mode simulation forcée
+            isConnected = true; 
+            document.getElementById('connectionStatus').innerText = "Mode Simulation";
+            document.getElementById('startBtn').disabled = false;
+        }
+    });
+
+    async function sendGCode(code) {
+        const command = code + '\n';
+        log(">> SEND: " + code);
+        
+        if (writer) {
+            await writer.write(command);
+        } else {
+            // Simulation
+            await new Promise(r => setTimeout(r, 500)); // Latence simulée
+        }
+    }
+
+    function log(msg) {
+        const line = document.createElement('div');
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logDiv.appendChild(line);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // --- 3. Logique de Contrôle (Processus de Semis) ---
+
+    document.getElementById('startBtn').addEventListener('click', async () => {
+        if(machineBusy) return;
+        machineBusy = true;
+        log("DÉBUT DU PROGRAMME DE SEMIS");
+
+        // Paramètres physiques
+        const realW = parseInt(document.getElementById('lengthMm').value);
+        const realH = parseInt(document.getElementById('widthMm').value);
+        const cols = parseInt(document.getElementById('gridX').value);
+        const rows = parseInt(document.getElementById('gridY').value);
+        
+        const cellRealW = realW / cols;
+        const cellRealH = realH / rows;
+
+        // Init machine
+        await sendGCode("G21"); // Millimètres
+        await sendGCode("G90"); // Absolu
+        await sendGCode("G28"); // Home All (0,0,0)
+
+        // Parcourir la grille
+        for(let x=0; x<cols; x++) {
+            for(let y=0; y<rows; y++) {
+                const plantType = gridState[x][y];
+                
+                if(plantType !== null) {
+                    log(`Traitement case [${x},${y}] - Plante: ${plantNames[plantType]}`);
+
+                    // 1. Aller chercher la graine
+                    // Position support: (0, 100 + (index*100), -400) (Note: Z est supposé haut lors du déplacement)
+                    const seedY = 100 + (plantType * 100);
+                    
+                    await sendGCode("G0 Z0"); // Relevage sécurité
+                    await sendGCode(`G0 X0 Y${seedY}`); // Aller au-dessus du support graine
+                    await sendGCode("G1 Z-400 F1000"); // Descendre au niveau graine (vitesse lente)
+                    
+                    // Activer Pompe Vide (M3 supposé)
+                    await sendGCode("M3"); // Vacuum ON
+                    log("Pompe vide ON (Graine saisie)");
+                    await new Promise(r => setTimeout(r, 1000)); // Attente saisie
+                    
+                    await sendGCode("G0 Z0"); // Remonter avec la graine
+
+                    // 2. Aller à la position de plantation
+                    // Centre de la case
+                    const targetX = (x * cellRealW) + (cellRealW / 2);
+                    const targetY = (y * cellRealH) + (cellRealH / 2);
+
+                    await sendGCode(`G0 X${targetX.toFixed(1)} Y${targetY.toFixed(1)}`); // Déplacement X Y
+                    await sendGCode("G1 Z-380 F1000"); // Descendre dans la terre (Z ajusté pour planter)
+
+                    // Relâcher graine
+                    await sendGCode("M5"); // Vacuum OFF
+                    log("Pompe vide OFF (Graine plantée)");
+                    await new Promise(r => setTimeout(r, 500));
+
+                    await sendGCode("G0 Z0"); // Remonter
+                }
+            }
+        }
+
+        await sendGCode("G28 X0 Y0"); // Retour parking
+        log("SEMIS TERMINÉ.");
+        machineBusy = false;
+
+        // Démarrage des surveillances automatiques
+        startMonitoring();
+    });
+
+    function stopMachine() {
+        // Arrêt d'urgence simulé (et reset Web Serial si possible)
+        log("!!! ARRÊT D'URGENCE !!!");
+        machineBusy = false;
+        if(writer) writer.releaseLock();
+        // Envoi commande M112 (Emergency Stop standard)
+        // sendGCode("M112"); 
+    }
+
+    // --- 4. Surveillance (Humidité & Mauvaises herbes) ---
+
+    let monitorInterval;
+
+    function startMonitoring() {
+        if(monitorInterval) clearInterval(monitorInterval);
+        
+        log("Activation surveillance automatique (Humidité: 2h, Weeds: 1sem)");
+        
+        // Simulation accélérée pour la démonstration :
+        // Humidité toutes les 10 secondes (au lieu de 2h)
+        monitorInterval = setInterval(() => {
+            checkMoisture();
+        }, 10000);
+
+        // Désherbage simulé manuel via bouton pour démo
+    }
+
+    async function checkMoisture() {
+        log("Contrôle Humidité...");
+        const cols = parseInt(document.getElementById('gridX').value);
+        const rows = parseInt(document.getElementById('gridY').value);
+
+        for(let x=0; x<cols; x++) {
+            for(let y=0; y<rows; y++) {
+                if(gridState[x][y] !== null) {
+                    // Simulation lecture capteur via Arduino (ex: commande analogique)
+                    // Ici on génère une valeur aléatoire
+                    const humidity = Math.floor(Math.random() * 100);
+                    
+                    if(humidity < 30) {
+                        log(`[ALERTE] Case ${x},${y} Humidité ${humidity}% (<30%). Arrosage...`);
+                        
+                        // Déplacement vers la case
+                        // Note: On simplifie le mouvement pour le log
+                        await sendGCode(`M8`); // Pompe Eau ON (code fictif M8)
+                        log(`Pompe Arrosage ON (20s) pour case ${x},${y}`);
+                        
+                        // Simulation attente 20s (réduit à 2s pour démo)
+                        await new Promise(r => setTimeout(r, 2000));
+                        
+                        await sendGCode(`M9`); // Pompe Eau OFF
+                        log(`Pompe Arrosage OFF`);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 5. Vision par Ordinateur (Désherbage) ---
+
+    async function triggerWeedCheck() {
+        log("Démarrage inspection visuelle...");
+        video.style.display = 'block';
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            
+            // Laisser la caméra se stabiliser
+            setTimeout(() => analyzeWeeds(stream), 2000);
+
+        } catch (err) {
+            log("Erreur Caméra: " + err);
+            // Simulation si pas de caméra
+            log("Mode simulation caméra: Analyse d'image fictive...");
+            analyzeWeedsSimulated();
+        }
+    }
+
+    function analyzeWeeds(stream) {
+        log("Analyse d'image en cours...");
+        
+        procCanvas.width = video.videoWidth;
+        procCanvas.height = video.videoHeight;
+        const pCtx = procCanvas.getContext('2d');
+        
+        // Capturer l'image actuelle
+        pCtx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+        
+        const frame = pCtx.getImageData(0, 0, procCanvas.width, procCanvas.height);
+        const data = frame.data;
+        let greenPixelCount = 0;
+        let totalPixels = data.length / 4;
+
+        // Analyse simple RGB
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // Détection couleur verte (G dominant largement R et B)
+            if (g > 100 && g > r * 1.5 && g > b * 1.5) {
+                greenPixelCount++;
+                // Marquer en rouge sur le canvas debug (optionnel)
+                data[i] = 255; data[i+1]=0; data[i+2]=0;
+            }
+        }
+
+        // Calcul pourcentage
+        const greenPercent = (greenPixelCount / totalPixels) * 100;
+        log(`Vert détecté: ${greenPercent.toFixed(2)}%`);
+
+        if(greenPercent > 25) {
+            log("Plante cultivée couvre > 25%. Désherbage annulé (Risque dommages).");
+        } else if (greenPercent > 1) {
+            log("Mauvaises herbes détectées ! Lancement séquence désherbage...");
+            // Ici code pour aller détruire les weeds
+        } else {
+            log("Zone propre.");
+        }
+
+        // Arrêt caméra
+        stream.getTracks().forEach(track => track.stop());
+        video.style.display = 'none';
+    }
+
+    function analyzeWeedsSimulated() {
+        // Simule un résultat aléatoire
+        const simulatedGreen = Math.random() * 40; // 0 à 40%
+        log(`Vert détecté (Simulé): ${simulatedGreen.toFixed(2)}%`);
+        
+        if(simulatedGreen > 25) {
+            log("Plante cultivée > 25%. Désherbage désactivé.");
+        } else {
+            log("Détection mauvaises herbes. Action requise.");
+        }
+        video.style.display = 'none';
+    }
+
+    // Init au chargement
+    window.onload = initUI;
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+        drawGrid();
+    });
+
+</script>
+</body>
+</html>
