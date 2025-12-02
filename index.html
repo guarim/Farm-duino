@@ -1,473 +1,314 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>FarmBot - Interface</title>
+<meta charset="UTF-8">
+<title>FarmBot CNC – Interface Professionnelle</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
-  .row { display:flex; gap:12px; align-items:flex-start; }
-  .panel { border:1px solid #ccc; padding:12px; border-radius:6px; }
-  label { display:block; margin-top:6px; font-size:0.9rem; }
-  input, select, button { margin-top:6px; padding:6px; }
-  #gridCanvas { border:1px solid #444; background:#f9f9f9; cursor:pointer; }
-  .plant-slot { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
-  .plant-btn { padding:6px 10px; border-radius:6px; border:1px solid #888; cursor:pointer; }
-  .selected { box-shadow: 0 0 0 3px rgba(0,120,200,0.15); border-color:#009; }
-  .small { font-size:0.85rem; padding:4px 6px; }
-  #videoGroup canvas { border:1px solid #333; margin-right:8px; }
-  .debug { font-family: monospace; background:#eee; padding:8px; border-radius:6px; }
+/* =====================================================================
+   GLOBAL STYLE — UI MODERNE
+   ===================================================================== */
+body {
+    font-family: "Segoe UI", Roboto, sans-serif;
+    background: #eef1f5;
+    margin: 0;
+    padding: 0;
+    color: #222;
+}
+header {
+    background: linear-gradient(135deg, #0d6efd, #1a82ff);
+    color: white;
+    padding: 25px 40px;
+    font-size: 28px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+}
+
+/* =====================================================================
+   LAYOUT
+   ===================================================================== */
+.container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 25px;
+    padding: 25px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    margin-bottom: 20px;
+}
+
+.card h2 {
+    font-size: 19px;
+    margin-bottom: 12px;
+    color: #0d6efd;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #cdd4df;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    border: none;
+    background: #0d6efd;
+    color: white;
+    font-size: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.25s;
+}
+button:hover { background: #0a58ca; }
+
+/* =====================================================================
+   CANVAS GRILLE
+   ===================================================================== */
+#grilleCanvas {
+    border: 2px solid #d0d4db;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+}
+
+/* =====================================================================
+   ANIMATION AXES (X cyan, Y orange, Z violet)
+   ===================================================================== */
+.axis-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.axis-line {
+    position: relative;
+    height: 14px;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #d8dee8;
+}
+
+.axis-marker {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    width: 20px;
+    height: 10px;
+    border-radius: 10px;
+    animation: slide 2.8s infinite ease-in-out alternate;
+}
+
+/* X — Cyan */
+.axis-x .axis-marker {
+    background: #00e0ff;
+}
+
+/* Y — Orange */
+.axis-y .axis-marker {
+    background: #ffa300;
+    animation-delay: .3s;
+}
+
+/* Z — Violet */
+.axis-z .axis-marker {
+    background: #b600ff;
+    animation-delay: .6s;
+}
+
+@keyframes slide {
+    from { left: 4px; }
+    to   { left: calc(100% - 24px); }
+}
+
+/* =====================================================================
+   WEB SERIAL LOG
+   ===================================================================== */
+#serialLog {
+    background: #0e1b29;
+    color: #8ce1ff;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    height: 160px;
+    overflow-y: auto;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+}
+
 </style>
 </head>
+
 <body>
+<header><i class="fa-solid fa-seedling"></i> FarmBot CNC – Interface Professionnelle</header>
 
-<h2>FarmBot — Interface de contrôle & visualisation</h2>
+<div class="container">
 
-<div class="row">
-  <div class="panel" style="width:480px;">
-    <h3>Paramètres de la surface</h3>
-    <label>Longueur totale L (mm) <input id="inputL" type="number" value="1200"></label>
-    <label>Largeur totale W (mm) <input id="inputW" type="number" value="600"></label>
-    <label>Nombre de cases Axe X (Nx) <input id="inputNx" type="number" value="9"></label>
-    <label>Nombre de cases Axe Y (Ny) <input id="inputNy" type="number" value="4"></label>
-    <button id="btnGenGrid">Générer la grille</button>
+<!-- ============================================================
+     PANNEAU GAUCHE
+     ============================================================ -->
+<div>
 
-    <h3>Plantes (6)</h3>
-    <div>
-      <input id="plantName0" placeholder="Plante 1" value="Tomate">
-      <input id="plantName1" placeholder="Plante 2" value="Laitue">
-      <input id="plantName2" placeholder="Plante 3" value="Carotte">
-      <input id="plantName3" placeholder="Plante 4" value="Radis">
-      <input id="plantName4" placeholder="Plante 5" value="Basilic">
-      <input id="plantName5" placeholder="Plante 6" value="Pois">
+    <!-- WebSerial -->
+    <div class="card">
+        <h2><i class="fa-solid fa-usb"></i> Connexion Arduino</h2>
+        <button onclick="connectSerial()">🔌 Connecter via WebSerial</button>
+        <button onclick="sendSerial('TEST')">📤 Envoyer TEST</button>
+        <div id="serialLog"></div>
     </div>
 
-    <h4>Affectation des cases</h4>
-    <div class="plant-slot" id="plantSlots"></div>
-    <p class="small">Cliquez sur une plante puis sur une case pour l'affecter.</p>
-
-    <h4>Export & actions</h4>
-    <button id="btnExportCSV">Exporter CSV (pour Sheets)</button>
-    <button id="btnGenerateGcode">Générer G-Code pour semis</button>
-    <button id="btnSendGcode">Envoyer G-Code (Web Serial)</button>
-  </div>
-
-  <div class="panel" style="flex:1;">
-    <h3>Visualisation - Grille</h3>
-    <canvas id="gridCanvas" width="800" height="400"></canvas>
-    <p class="small">Overlay disque Z: bleu = position haute, rouge = position basse (semi-transparent).</p>
-
-    <h3>Debug & Capteurs (C0=X, C1=Y, C2=Z)</h3>
-    <div class="row">
-      <div class="panel" style="min-width:260px;">
-        <div class="debug">
-          <div>Connexion Arduino: <button id="btnConnectSerial">Connecter</button> <span id="serialStatus">non connecté</span></div>
-          <div style="margin-top:8px;">
-            <strong>Capteurs:</strong><br>
-            C0 (X): <span id="c0Val">0</span> &nbsp;
-            <button class="small" data-sensor="0" data-op="+">+1</button>
-            <button class="small" data-sensor="0" data-op="-">-1</button><br>
-            C1 (Y): <span id="c1Val">0</span> &nbsp;
-            <button class="small" data-sensor="1" data-op="+">+1</button>
-            <button class="small" data-sensor="1" data-op="-">-1</button><br>
-            C2 (Z): <span id="c2Val">0</span> &nbsp;
-            <button class="small" data-sensor="2" data-op="+">+1</button>
-            <button class="small" data-sensor="2" data-op="-">-1</button><br>
-          </div>
-          <div style="margin-top:8px;">
-            <strong>Positions actuelles (mm)</strong><br>
-            X: <span id="curX">0</span> &nbsp; Y: <span id="curY">0</span> &nbsp; Z: <span id="curZ">0</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" style="flex:1;">
-        <h4>Actions rapides</h4>
-        <button id="btnHome">Home (G0 X0 Y0 Z0)</button>
-        <button id="btnGoSeedTool">Aller outil k (ex k=1)</button>
-        <div style="margin-top:8px;">
-          <label>k (outil) <input id="inputK" type="number" value="1" min="1" max="6"></label>
-          <label>Z prise graine (mm) <input id="inputZPrise" type="number" value="-400"></label>
-          <label>Z profondeur semis (mm) <input id="inputZDepth" type="number" value="-50"></label>
-        </div>
-      </div>
+    <!-- Configuration -->
+    <div class="card">
+        <h2><i class="fa-solid fa-gear"></i> Paramètres Surface</h2>
+        Longueur L : <input type="number" id="longueur">
+        Largeur W : <input type="number" id="largeur">
+        Nx : <input type="number" id="nx">
+        Ny : <input type="number" id="ny">
+        <button onclick="genererGrille()">Générer la grille</button>
     </div>
-  </div>
+
+    <!-- Animation axes -->
+    <div class="card">
+        <h2><i class="fa-solid fa-arrows-alt"></i> Animation des axes</h2>
+
+        <div class="axis-box">
+            <div class="axis-line axis-x">
+                <div class="axis-marker"></div>
+            </div>
+            <div class="axis-line axis-y">
+                <div class="axis-marker"></div>
+            </div>
+            <div class="axis-line axis-z">
+                <div class="axis-marker"></div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<hr />
+<!-- ============================================================
+     PANNEAU DROIT
+     ============================================================ -->
+<div>
 
-<div class="row" id="videoGroup">
-  <div class="panel">
-    <h4>Webcam - Vidéo réelle (320×240)</h4>
-    <video id="videoIn" autoplay playsinline width="320" height="240"></video>
-  </div>
-  <div class="panel">
-    <h4>Webcam - Masque mauvaises herbes (320×240)</h4>
-    <canvas id="maskCanvas" width="320" height="240"></canvas>
-  </div>
-  <div class="panel">
-    <h4>Vision - Résultats</h4>
-    <div>Pourcentage de vert dans la case: <span id="pcGreen">0</span>%</div>
-    <div>Weeding actif: <span id="weedingActive">oui</span></div>
-    <button id="btnStartCam">Démarrer caméra</button>
-  </div>
+    <div class="card">
+        <h2><i class="fa-solid fa-table-cells"></i> Grille de culture</h2>
+        <canvas id="grilleCanvas" width="700" height="500"></canvas>
+    </div>
+
 </div>
 
+</div>
+
+<!-- =================================================================
+     JAVASCRIPT
+================================================================= -->
 <script>
-/* ---------- Variables globales ---------- */
-let L = 1200, W = 600, Nx = 9, Ny = 4;
-let cellW = W / Ny, cellL = L / Nx; // mm
-let canvas = document.getElementById('gridCanvas');
-let ctx = canvas.getContext('2d');
-let grid = []; // store object for each case {plant: idx or null}
-let plants = [];
-let selectedPlant = null;
-let curPos = {x:0,y:0,z:0};
-let sensorVals = [0,0,0]; // C0,C1,C2
-let serialPort = null;
-let serialWriter = null;
-let gcodeBuffer = [];
-/* ---------- UI init ---------- */
-document.getElementById('btnGenGrid').addEventListener('click', () => {
-  L = Number(document.getElementById('inputL').value);
-  W = Number(document.getElementById('inputW').value);
-  Nx = Math.max(1, Math.floor(Number(document.getElementById('inputNx').value)));
-  Ny = Math.max(1, Math.floor(Number(document.getElementById('inputNy').value)));
-  cellW = W / Ny; cellL = L / Nx;
-  initGrid();
-  drawGrid();
-});
-function initPlantSlots() {
-  const slot = document.getElementById('plantSlots');
-  slot.innerHTML = '';
-  plants = [];
-  for(let i=0;i<6;i++){
-    const name = document.getElementById('plantName'+i).value || ('Plante'+(i+1));
-    plants.push(name);
-    const btn = document.createElement('button');
-    btn.textContent = name;
-    btn.className = 'plant-btn';
-    btn.dataset.idx = i;
-    btn.addEventListener('click', ()=> {
-      // toggle selection
-      document.querySelectorAll('.plant-btn').forEach(b=>b.classList.remove('selected'));
-      if (selectedPlant === i) { selectedPlant = null; }
-      else { selectedPlant = i; btn.classList.add('selected'); }
-    });
-    slot.appendChild(btn);
-  }
-}
-document.querySelectorAll('[id^=plantName]').forEach(inp=>{
-  inp.addEventListener('change', initPlantSlots);
-});
-initPlantSlots();
 
-/* ---------- Grid logic ---------- */
-function initGrid(){
-  grid = [];
-  for(let j=0;j<Ny;j++){
-    const row = [];
-    for(let i=0;i<Nx;i++){
-      row.push({plant: null}); // plant index or null
+/* ============================================================
+   1. WEB SERIAL — Connexion propre & asynchrone
+   ============================================================ */
+let port;
+let reader;
+let inputDone;
+let outputDone;
+let outputStream;
+
+async function connectSerial() {
+    try {
+        logSerial("🔍 Demande de port série...");
+
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        logSerial("✅ Port ouvert !");
+
+        // Output stream
+        const encoder = new TextEncoderStream();
+        outputDone = encoder.readable.pipeTo(port.writable);
+        outputStream = encoder.writable;
+
+        // Input stream
+        const decoder = new TextDecoderStream();
+        inputDone = port.readable.pipeTo(decoder.writable);
+        reader = decoder.readable.getReader();
+
+        listenToPort();
+
+    } catch (err) {
+        logSerial("❌ Erreur WebSerial : " + err);
     }
-    grid.push(row);
-  }
-  // resize canvas proportionally
-  canvas.width = Math.min(1000, Nx*80);
-  canvas.height = Math.min(700, Ny*100);
-}
-initGrid();
-
-/* corrected center formulas:
-   cellLength = L / Nx; centerX(i) = (i + 0.5) * cellLength
-   cellWidth  = W / Ny; centerY(j) = (j + 0.5) * cellWidth
-*/
-
-function centerMMtoCanvas(xmm, ymm){
-  // convert physical mm in the farm coordinates to canvas pixel coords.
-  // farm X in [0..L] maps to canvas.width
-  const px = (xmm / L) * canvas.width;
-  const py = (ymm / W) * canvas.height;
-  return {x: px, y: py};
-}
-function canvasToCell(mx,my){
-  const xmm = (mx / canvas.width) * L;
-  const ymm = (my / canvas.height) * W;
-  const i = Math.floor(xmm / cellL);
-  const j = Math.floor(ymm / cellW);
-  return {i: Math.max(0, Math.min(Nx-1,i)), j: Math.max(0, Math.min(Ny-1,j)), xmm, ymm};
-}
-canvas.addEventListener('click', (ev)=>{
-  const r = canvas.getBoundingClientRect();
-  const mx = ev.clientX - r.left;
-  const my = ev.clientY - r.top;
-  const cell = canvasToCell(mx,my);
-  if (selectedPlant !== null) {
-    grid[cell.j][cell.i].plant = selectedPlant;
-    drawGrid();
-  }
-});
-
-/* draw grid and overlays */
-function drawGrid(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // draw cells
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const {x,y} = centerMMtoCanvas((i+0.5)*cellL, (j+0.5)*cellW);
-      const w = canvas.width / Nx;
-      const h = canvas.height / Ny;
-      ctx.strokeStyle = '#999';
-      ctx.strokeRect(i*w, j*h, w, h);
-      // plant name
-      const p = grid[j][i].plant;
-      if (p !== null) {
-        ctx.fillStyle = '#000';
-        ctx.font = `${Math.max(10, Math.min(18, w/6))}px sans-serif`;
-        ctx.fillText(plants[p], i*w + 6, j*h + 20);
-      }
-    }
-  }
-  // draw overlay disk for current Z
-  drawZOverlay();
 }
 
-/* overlay Z as a semi transparent disk at current X/Y */
-function drawZOverlay(){
-  // position in canvas
-  const {x,y} = centerMMtoCanvas(curPos.x, curPos.y);
-  const diskRadiusPx = Math.min(canvas.width/cellW, canvas.height/cellL) * 0.05 * 10; // arbitrary visual size
-  ctx.beginPath();
-  ctx.arc(x || 0, y || 0, 18, 0, Math.PI*2);
-  ctx.fillStyle = (curPos.z <= 0 ? 'rgba(200,0,0,0.35)' : 'rgba(0,100,255,0.25)'); // red if low (posit. bas), blue if haut
-  ctx.fill();
-  ctx.strokeStyle = '#333';
-  ctx.stroke();
-  // draw crosshair
-  ctx.beginPath();
-  ctx.moveTo(x-10,y); ctx.lineTo(x+10,y); ctx.moveTo(x,y-10); ctx.lineTo(x,y+10);
-  ctx.stroke();
-}
-
-/* ---------- sensor UI buttons ---------- */
-document.querySelectorAll('button[data-sensor]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const s = Number(btn.dataset.sensor);
-    const op = btn.dataset.op;
-    if (op === '+') sensorVals[s] += 1; else sensorVals[s] = Math.max(0, sensorVals[s]-1);
-    updateSensorUI();
-  });
-});
-function updateSensorUI(){
-  document.getElementById('c0Val').textContent = sensorVals[0];
-  document.getElementById('c1Val').textContent = sensorVals[1];
-  document.getElementById('c2Val').textContent = sensorVals[2];
-}
-
-/* update current pos UI */
-function updatePosUI(){
-  document.getElementById('curX').textContent = curPos.x.toFixed(0);
-  document.getElementById('curY').textContent = curPos.y.toFixed(0);
-  document.getElementById('curZ').textContent = curPos.z.toFixed(0);
-}
-
-/* ---------- Quick action buttons ---------- */
-document.getElementById('btnHome').addEventListener('click', ()=>{
-  // simulate G0 X0 Y0 Z0
-  curPos = {x:0,y:0,z:0}; updatePosUI(); drawGrid();
-});
-document.getElementById('btnGoSeedTool').addEventListener('click', ()=>{
-  const k = Number(document.getElementById('inputK').value) || 1;
-  // per your convention: tool k at X=0, Y=100*k, Z=-400
-  curPos = {x:0,y:100*k,z:-400}; updatePosUI(); drawGrid();
-});
-
-/* ---------- Export CSV ---------- */
-document.getElementById('btnExportCSV').addEventListener('click', ()=>{
-  let rows = [['i','j','x_mm','y_mm','plantIndex','plantName']];
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const p = grid[j][i].plant;
-      const x = (i+0.5)*cellL;
-      const y = (j+0.5)*cellW;
-      rows.push([i,j,x.toFixed(1),y.toFixed(1), p===null?'':p, p===null?'':plants[p]]);
-    }
-  }
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='farmgrid_export.csv'; a.click();
-  URL.revokeObjectURL(url);
-});
-
-/* ---------- G-Code generation for seeding ---------- */
-function Xcenter(i){ return (i + 0.5) * cellL; }
-function Ycenter(j){ return (j + 0.5) * cellW; }
-
-document.getElementById('btnGenerateGcode').addEventListener('click', ()=>{
-  // produce G-code following sequence described
-  const zPrise = Number(document.getElementById('inputZPrise').value);
-  const zDepth = Number(document.getElementById('inputZDepth').value);
-  let g = [];
-  g.push('; G-code généré par l\'interface FarmBot');
-  g.push('G0 Z0 ; safe height');
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const p = grid[j][i].plant;
-      if (p === null) continue;
-      const k = p+1; // plant index 1..6
-      // go pick tool k
-      g.push(`; semis plant ${plants[p]} en case (${i},${j})`);
-      g.push('G0 Z0');
-      g.push(`G0 X0 Y${100*k} Z-400`);
-      g.push(`G1 Z${zPrise}`);
-      g.push('M3 P1'); // vacuum on
-      g.push('G4 P200'); // pause 200ms (dwell)
-      g.push('G0 Z0');
-      // move to centre
-      g.push(`G0 X${Xcenter(i).toFixed(2)} Y${Ycenter(j).toFixed(2)} Z0`);
-      g.push(`G1 Z${zDepth} F100`);
-      g.push('M5'); // vacuum off
-      g.push('G0 Z0');
-    }
-  }
-  const txt = g.join('\n');
-  document.getElementById('serialStatus').textContent = 'G-Code généré (cliquer Envoyer pour transmission)';
-  gcodeBuffer = g;
-  // show in console
-  console.log(txt);
-  alert('G-Code généré et stocké en mémoire (cliquer "Envoyer G-Code").');
-});
-
-/* ---------- Web Serial API: envoi du G-code ---------- */
-document.getElementById('btnConnectSerial').addEventListener('click', async ()=>{
-  if (!('serial' in navigator)) { alert('Votre navigateur ne supporte pas Web Serial'); return; }
-  try {
-    serialPort = await navigator.serial.requestPort();
-    await serialPort.open({ baudRate: 115200 });
-    document.getElementById('serialStatus').textContent = 'connecté';
-    // setup writer
-    serialWriter = serialPort.writable.getWriter();
-    // read incoming (optional)
-    const reader = serialPort.readable.getReader();
-    (async function readLoop(){
-      try {
-        while(true){
-          const {value, done} = await reader.read();
-          if (done) break;
-          if (value) {
-            const s = new TextDecoder().decode(value);
-            console.log('Serial IN:', s);
-          }
+async function listenToPort() {
+    try {
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) logSerial("📥 " + value);
         }
-      } catch(e){ console.warn('readLoop error', e); }
-    })();
-  } catch(e){ console.error(e); alert('Erreur connexion: '+e.message); }
-});
-
-document.getElementById('btnSendGcode').addEventListener('click', async ()=>{
-  if (!serialWriter) { alert('Pas connecté. Cliquez Connecter d\'abord.'); return; }
-  try {
-    for(const line of gcodeBuffer){
-      await serialWriter.write(new TextEncoder().encode(line + '\n'));
-      await new Promise(r=>setTimeout(r, 50)); // small interline pause
+    } catch (err) {
+        logSerial("❌ Erreur lecture : " + err);
     }
-    alert('G-Code envoyé.');
-  } catch(e){ console.error(e); alert('Erreur envoi: '+e.message); }
-});
-
-/* ---------- Camera / Vision integration (see section 2 for algorithme détaillé) ---------- */
-const video = document.getElementById('videoIn');
-const maskCanvas = document.getElementById('maskCanvas');
-const maskCtx = maskCanvas.getContext('2d');
-let camStream = null;
-document.getElementById('btnStartCam').addEventListener('click', async ()=>{
-  try {
-    camStream = await navigator.mediaDevices.getUserMedia({video:{width:320,height:240}});
-    video.srcObject = camStream;
-    processVideoFrame();
-  } catch(e){ alert('Erreur caméra: '+e.message); }
-});
-
-// function to process frames repeatedly and compute mask
-async function processVideoFrame(){
-  if (!camStream) return;
-  maskCtx.drawImage(video, 0, 0, maskCanvas.width, maskCanvas.height);
-  const img = maskCtx.getImageData(0,0, maskCanvas.width, maskCanvas.height);
-  const data = img.data;
-  // convert to HSV and threshold green
-  const threshold = {hMin:35, hMax:100, sMin:40, vMin:30}; // flexible
-  let greenCount = 0;
-  for(let i=0;i<data.length;i+=4){
-    const r = data[i], g = data[i+1], b = data[i+2];
-    // rgb->hsv
-    const max = Math.max(r,g,b), min = Math.min(r,g,b);
-    const v = max / 255 * 100;
-    const delta = max - min;
-    let h=0;
-    if (delta===0) h=0;
-    else if (max===r) h = ((g - b)/delta) % 6;
-    else if (max===g) h = ((b - r)/delta) + 2;
-    else h = ((r - g)/delta) + 4;
-    h = Math.round(h * 60);
-    if (h < 0) h += 360;
-    const s = max === 0 ? 0 : (delta / max) * 100;
-    // threshold green
-    if (h >= threshold.hMin && h <= threshold.hMax && s >= threshold.sMin && v >= threshold.vMin){
-      // keep green in mask
-      data[i] = 0; data[i+1] = 255; data[i+2] = 0; // pure green highlight
-      greenCount++;
-    } else {
-      data[i] = data[i+1] = data[i+2] = 0; // black
-    }
-  }
-  maskCtx.putImageData(img, 0, 0);
-
-  // Now compute exclusion circle (center of cell) and remove green pixels inside radius R=30mm
-  // For demo we assume the webcam is centered over a single case; mapping mm->pixels:
-  // We approximate: pixels_per_mm_x = maskCanvas.width / L; pixels_per_mm_y = maskCanvas.height / W.
-  const pxPerMmX = maskCanvas.width / L;
-  const pxPerMmY = maskCanvas.height / W;
-  const Rmm = 30; // 30 mm exclusion radius
-  const Rpx = Math.round((pxPerMmX+pxPerMmY)/2 * Rmm);
-  // assume plant center is at image center (if you move camera exactly to cell centre)
-  const cx = Math.round(maskCanvas.width/2), cy = Math.round(maskCanvas.height/2);
-  // read back mask pixels and zero those inside circle & count outside green for weed detection
-  const img2 = maskCtx.getImageData(0,0, maskCanvas.width, maskCanvas.height);
-  let outsideGreen = 0, totalPixels = maskCanvas.width*maskCanvas.height;
-  for(let y=0;y<maskCanvas.height;y++){
-    for(let x=0;x<maskCanvas.width;x++){
-      const idx = (y*maskCanvas.width + x)*4;
-      const isGreen = (img2.data[idx+1] === 255 && img2.data[idx] === 0 && img2.data[idx+2] === 0);
-      if (!isGreen) continue;
-      const dx = x-cx, dy = y-cy;
-      if (dx*dx + dy*dy <= Rpx*Rpx){
-        // inside exclusion zone -> zero it
-        img2.data[idx] = img2.data[idx+1] = img2.data[idx+2] = 0;
-      } else {
-        outsideGreen++;
-      }
-    }
-  }
-  // draw overlay circle on mask (semi-transparent)
-  maskCtx.putImageData(img2, 0, 0);
-  maskCtx.beginPath(); maskCtx.strokeStyle='rgba(0,0,255,0.6)'; maskCtx.lineWidth=2;
-  maskCtx.arc(cx,cy,Rpx,0,Math.PI*2); maskCtx.stroke();
-
-  // percentage of green in the whole image (used to estimate plant cover)
-  const pcGreen = Math.round((greenCount / totalPixels) * 100);
-  document.getElementById('pcGreen').textContent = pcGreen;
-  const weedingActive = (pcGreen <= 35);
-  document.getElementById('weedingActive').textContent = weedingActive ? 'oui' : 'non (désactivé)';
-  // loop
-  requestAnimationFrame(processVideoFrame);
 }
 
-/* ---------- initial draw ---------- */
-drawGrid();
-updateSensorUI();
-updatePosUI();
+async function sendSerial(msg) {
+    if (!outputStream) {
+        logSerial("⚠️ Non connecté !");
+        return;
+    }
+    const writer = outputStream.getWriter();
+    await writer.write(msg + "\n");
+    writer.releaseLock();
+    logSerial("📤 " + msg);
+}
+
+function logSerial(msg) {
+    let box = document.getElementById("serialLog");
+    box.innerHTML += msg + "<br>";
+    box.scrollTop = box.scrollHeight;
+}
+
+/* ============================================================
+   2. Génération de la grille
+   ============================================================ */
+function genererGrille() {
+    let c = document.getElementById("grilleCanvas");
+    let ctx = c.getContext("2d");
+    ctx.clearRect(0,0,c.width,c.height);
+
+    let nx = parseInt(document.getElementById("nx").value);
+    let ny = parseInt(document.getElementById("ny").value);
+
+    let w = c.width / nx;
+    let h = c.height / ny;
+
+    ctx.strokeStyle = "#8a9bb5";
+    ctx.lineWidth = 1.2;
+
+    for (let i = 0; i <= nx; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i*w,0);
+        ctx.lineTo(i*w,c.height);
+        ctx.stroke();
+    }
+    for (let j = 0; j <= ny; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0,j*h);
+        ctx.lineTo(c.width,j*h);
+        ctx.stroke();
+    }
+}
 
 </script>
 </body>
