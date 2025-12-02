@@ -1,314 +1,894 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>FarmBot CNC – Interface Professionnelle</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FarmBot CNC — Interface complète</title>
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-/* =====================================================================
-   GLOBAL STYLE — UI MODERNE
-   ===================================================================== */
-body {
-    font-family: "Segoe UI", Roboto, sans-serif;
-    background: #eef1f5;
-    margin: 0;
-    padding: 0;
-    color: #222;
-}
-header {
-    background: linear-gradient(135deg, #0d6efd, #1a82ff);
-    color: white;
-    padding: 25px 40px;
-    font-size: 28px;
-    font-weight: 600;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.3);
-}
+  /* ===========================
+     GLOBAL — Design moderne
+     =========================== */
+  :root{
+    --bg:#f4f7fb;
+    --card:#ffffff;
+    --accent:#0d6efd;
+    --muted:#6b7280;
+    --success:#16a34a;
+    --danger:#ef4444;
+    --glass: rgba(255,255,255,0.7);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(180deg,var(--bg),#e9eef7);
+    color:#0f172a;
+  }
+  header{
+    background: linear-gradient(135deg,var(--accent),#2aa0ff);
+    color:white; padding:22px 28px; font-size:22px; font-weight:700;
+    box-shadow: 0 6px 24px rgba(13,110,253,0.18);
+    display:flex; gap:12px; align-items:center;
+  }
+  header .logo {font-size:1.4rem}
+  main { padding:20px; display:grid; grid-template-columns:360px 1fr; gap:20px; }
 
-/* =====================================================================
-   LAYOUT
-   ===================================================================== */
-.container {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 25px;
-    padding: 25px;
-}
+  .card{
+    background:var(--card); border-radius:12px; padding:16px;
+    box-shadow: 0 8px 30px rgba(2,6,23,0.06);
+  }
+  h3{ margin:0 0 10px 0; color:var(--accent); font-size:18px }
 
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
-    margin-bottom: 20px;
-}
+  input[type="number"], input[type="text"], select {
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid #d1d5db;
+    margin-top:6px; margin-bottom:10px; font-size:14px;
+  }
+  button {
+    background:var(--accent); color:white; border:0; padding:10px 12px; border-radius:10px;
+    cursor:pointer; font-weight:600; transition:all .18s; display:inline-block;
+  }
+  button.ghost { background: transparent; color:var(--accent); border:1px solid rgba(13,110,253,0.15) }
+  button.small { padding:6px 8px; font-size:13px; border-radius:8px }
+  button:hover{ transform:translateY(-2px); box-shadow: 0 8px 18px rgba(13,110,253,0.12) }
 
-.card h2 {
-    font-size: 19px;
-    margin-bottom: 12px;
-    color: #0d6efd;
-}
+  .row { display:flex; gap:10px; align-items:center }
+  .col { display:flex; flex-direction:column; gap:8px }
+  .muted { color:var(--muted); font-size:13px }
 
-input {
-    width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #cdd4df;
-    font-size: 14px;
-    margin-top: 8px;
-}
+  /* ============= Grid canvas ============= */
+  #gridWrap { position:relative; display:inline-block; }
+  #gridCanvas { border-radius:12px; background:linear-gradient(180deg,#fff,#fbfdff); border:1px solid #e6eefc; box-shadow:0 8px 20px rgba(12,64,255,0.04) }
+  /* disk that indicates Z */
+  #diskZ {
+    position:absolute; width:28px; height:28px; border-radius:50%;
+    transform:translate(-50%,-50%); pointer-events:none; box-shadow:0 6px 16px rgba(0,0,0,0.18);
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:white;
+  }
+  #diskZ.up { background:rgba(10,120,255,0.9) } /* bleu haut */
+  #diskZ.down { background:rgba(220,40,40,0.92) } /* rouge bas */
 
-button {
-    width: 100%;
-    padding: 12px;
-    margin-top: 12px;
-    border: none;
-    background: #0d6efd;
-    color: white;
-    font-size: 15px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: 0.25s;
-}
-button:hover { background: #0a58ca; }
+  /* plant color badge */
+  .plant-badge {
+    display:flex; gap:8px; align-items:center; padding:6px; border-radius:10px; background:#fbfbff;
+    border:1px solid #eef2ff;
+  }
+  .color-dot { width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:6px }
 
-/* =====================================================================
-   CANVAS GRILLE
-   ===================================================================== */
-#grilleCanvas {
-    border: 2px solid #d0d4db;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
-}
+  /* ============== Vision =============== */
+  .visionRow { display:flex; gap:12px; align-items:flex-start }
+  canvas.vision { border-radius:10px; border:1px solid #dbe7ff; background:#000; }
 
-/* =====================================================================
-   ANIMATION AXES (X cyan, Y orange, Z violet)
-   ===================================================================== */
-.axis-box {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
+  /* ============== Axis animation ============== */
+  .axisRow { display:flex; flex-direction:column; gap:10px; margin-top:8px }
+  .axisLine { height:12px; background:#eef2ff; border-radius:12px; position:relative; overflow:hidden }
+  .axisMarker { width:20px; height:12px; position:absolute; top:0; border-radius:8px; animation: slide 3s ease-in-out infinite alternate }
+  .axisX .axisMarker { background: linear-gradient(90deg,#00e0ff,#00a3ff); animation-delay:0s }
+  .axisY .axisMarker { background: linear-gradient(90deg,#ffb46b,#ff8b2b); animation-delay:.35s }
+  .axisZ .axisMarker { background: linear-gradient(90deg,#b78bff,#8b43ff); animation-delay:.7s }
+  @keyframes slide { from { left:6px } to { left: calc(100% - 26px) } }
 
-.axis-line {
-    position: relative;
-    height: 14px;
-    border-radius: 20px;
-    overflow: hidden;
-    background: #d8dee8;
-}
+  /* ============= Serial log ============= */
+  #serialLog { background:#0b1220; color:#9be3ff; padding:10px; border-radius:10px; font-family:ui-monospace,monospace; height:160px; overflow:auto; font-size:13px }
 
-.axis-marker {
-    position: absolute;
-    top: 2px;
-    left: 0;
-    width: 20px;
-    height: 10px;
-    border-radius: 10px;
-    animation: slide 2.8s infinite ease-in-out alternate;
-}
+  /* ============= Manual controls ============= */
+  .manualGrid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; align-items:center }
+  .manualGrid button { padding:10px }
 
-/* X — Cyan */
-.axis-x .axis-marker {
-    background: #00e0ff;
-}
+  /* ============= badges and small UI ============= */
+  .chip { padding:6px 10px; border-radius:999px; background:#f1f5f9; font-weight:600; color:#0f172a }
+  .plant-list { display:flex; gap:8px; flex-wrap:wrap }
 
-/* Y — Orange */
-.axis-y .axis-marker {
-    background: #ffa300;
-    animation-delay: .3s;
-}
-
-/* Z — Violet */
-.axis-z .axis-marker {
-    background: #b600ff;
-    animation-delay: .6s;
-}
-
-@keyframes slide {
-    from { left: 4px; }
-    to   { left: calc(100% - 24px); }
-}
-
-/* =====================================================================
-   WEB SERIAL LOG
-   ===================================================================== */
-#serialLog {
-    background: #0e1b29;
-    color: #8ce1ff;
-    font-family: Consolas, monospace;
-    font-size: 13px;
-    height: 160px;
-    overflow-y: auto;
-    border-radius: 10px;
-    padding: 10px;
-    box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
-}
+  /* responsive */
+  @media (max-width:1000px){
+    main { grid-template-columns: 1fr; padding:12px }
+    #gridCanvas{ width:100% !important }
+  }
 
 </style>
 </head>
-
 <body>
-<header><i class="fa-solid fa-seedling"></i> FarmBot CNC – Interface Professionnelle</header>
+<header>
+  <span class="logo"><i class="fa-solid fa-seedling"></i></span>
+  <div>
+    FarmBot CNC — Interface complète
+    <div class="muted" style="font-size:12px; font-weight:500">Pilotage • Vision • Arrosage • WebSerial • Gestion des plantes</div>
+  </div>
+</header>
 
-<div class="container">
+<main>
+  <!-- LEFT COLUMN: controls -->
+  <section class="card" style="min-height:600px">
+    <h3><i class="fa-solid fa-usb"></i> Connexion & Logs</h3>
 
-<!-- ============================================================
-     PANNEAU GAUCHE
-     ============================================================ -->
-<div>
-
-    <!-- WebSerial -->
-    <div class="card">
-        <h2><i class="fa-solid fa-usb"></i> Connexion Arduino</h2>
-        <button onclick="connectSerial()">🔌 Connecter via WebSerial</button>
-        <button onclick="sendSerial('TEST')">📤 Envoyer TEST</button>
-        <div id="serialLog"></div>
+    <div class="row">
+      <button id="btnConnect">🔌 Connecter Arduino</button>
+      <button id="btnDisconnect" class="ghost">❌ Déconnecter</button>
     </div>
 
-    <!-- Configuration -->
-    <div class="card">
-        <h2><i class="fa-solid fa-gear"></i> Paramètres Surface</h2>
-        Longueur L : <input type="number" id="longueur">
-        Largeur W : <input type="number" id="largeur">
-        Nx : <input type="number" id="nx">
-        Ny : <input type="number" id="ny">
-        <button onclick="genererGrille()">Générer la grille</button>
+    <div style="margin-top:10px">
+      <div class="muted">Port:</div>
+      <div id="serialInfo" class="muted">non connecté</div>
     </div>
 
-    <!-- Animation axes -->
-    <div class="card">
-        <h2><i class="fa-solid fa-arrows-alt"></i> Animation des axes</h2>
+    <h3 style="margin-top:14px"><i class="fa-solid fa-terminal"></i> Console série</h3>
+    <div id="serialLog"></div>
+    <div style="margin-top:8px" class="row">
+      <input id="quickCmd" placeholder="Commande série (ex: G0 X0 Y0 Z0)">
+      <button id="btnSendCmd">Envoyer</button>
+    </div>
 
-        <div class="axis-box">
-            <div class="axis-line axis-x">
-                <div class="axis-marker"></div>
-            </div>
-            <div class="axis-line axis-y">
-                <div class="axis-marker"></div>
-            </div>
-            <div class="axis-line axis-z">
-                <div class="axis-marker"></div>
-            </div>
+    <hr style="margin:12px 0">
+
+    <h3><i class="fa-solid fa-gear"></i> Paramètres de la surface</h3>
+    <label>Longueur totale L (mm)</label>
+    <input id="inputL" type="number" value="1200">
+    <label>Largeur totale W (mm)</label>
+    <input id="inputW" type="number" value="600">
+    <label>Nombre cases Axe X (Nx)</label>
+    <input id="inputNx" type="number" value="9" min="1">
+    <label>Nombre cases Axe Y (Ny)</label>
+    <input id="inputNy" type="number" value="4" min="1">
+    <div class="row">
+      <button id="btnGen">Générer la grille</button>
+      <button id="btnExport" class="ghost">Exporter CSV</button>
+    </div>
+
+    <h3 style="margin-top:12px"><i class="fa-solid fa-leaf"></i> Gestion 6 plantes</h3>
+    <div class="muted">Entrez noms et choisissez couleur</div>
+    <div id="plantInputs" style="margin-top:8px">
+      <!-- dynamic -->
+    </div>
+    <div style="margin-top:8px" class="row">
+      <button id="btnSavePlants">Sauvegarder</button>
+      <button id="btnLoadPlants" class="ghost">Restaurer</button>
+    </div>
+
+    <h3 style="margin-top:14px"><i class="fa-solid fa-tint"></i> Arrosage & Humidité</h3>
+    <div class="muted">Seuil d'humidité (%)</div>
+    <input id="moistureThreshold" type="number" value="30" min="0" max="100">
+    <div class="muted">Durée d'arrosage (s)</div>
+    <input id="waterDuration" type="number" value="20" min="1">
+    <div class="muted">Intervalle automatique (minutes)</div>
+    <input id="waterIntervalMins" type="number" value="120" min="1">
+    <div style="margin-top:8px" class="row">
+      <button id="btnStartAuto">Démarrer surveillance</button>
+      <button id="btnStopAuto" class="ghost">Arrêter</button>
+    </div>
+
+    <div style="margin-top:12px" class="muted">
+      Remarque: l'interface envoie des commandes pour demander la lecture d'humidité à l'Arduino et déclenche l'arrosage si < seuil.
+    </div>
+
+    <h3 style="margin-top:12px"><i class="fa-solid fa-wrench"></i> Aide - protocoles série</h3>
+    <div class="muted" style="font-size:13px">
+      Le frontend envoie / attend ces messages série :
+      <ul style="margin:8px 0 0 18px">
+        <li><b>G-code standard</b> (ex: <code>G0 X123 Y456 Z0</code>, <code>M3</code>, <code>M5</code>)</li>
+        <li><b>READ_MOISTURE</b> → l'Arduino doit répondre : <code>MOISTURE i j value</code> (value en %)</li>
+        <li><b>WATER_ON</b> et <b>WATER_OFF</b> pour piloter pompe d'arrosage (ou utilisez M-cmd)</li>
+        <li><b>ACK</b> ou <b>OK</b> pour accuser réception</li>
+      </ul>
+    </div>
+
+  </section>
+
+  <!-- RIGHT COLUMN: grid, vision, manual -->
+  <section>
+    <div class="card">
+      <h3><i class="fa-solid fa-table-cells"></i> Grille interactive</h3>
+
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+        <div>
+          <span class="chip" id="gridInfo">Nx × Ny : 9 × 4</span>
+          <span class="muted" style="margin-left:8px">Taille case calculée automatiquement</span>
         </div>
+        <div class="muted">Position: X <span id="posX">0</span> mm / Y <span id="posY">0</span> mm / Z <span id="posZ">0</span> mm</div>
+      </div>
+
+      <div id="gridWrap">
+        <canvas id="gridCanvas" width="900" height="440"></canvas>
+        <div id="diskZ" class="up">Z</div>
+      </div>
+
+      <div style="margin-top:10px" class="row">
+        <button id="btnGenSeedGcode">Générer G-Code semis (toutes cases)</button>
+        <button id="btnSendAll" class="ghost">Envoyer tout</button>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="muted">Clique : sélectionner case (ou shift-clic pour affecter la plante sélectionnée)</div>
+        <div style="margin-top:8px" id="plantSelector" class="plant-list"></div>
+      </div>
     </div>
 
-</div>
+    <div class="card" style="margin-top:14px">
+      <h3><i class="fa-solid fa-gamepad"></i> Pilotage manuel & animation axes</h3>
+      <div class="manualGrid" style="margin-bottom:8px">
+        <button onclick="moveXY(0,-stepXY)">⬆ Y+</button>
+        <button onclick="moveXY(0,0)">●</button>
+        <button onclick="moveXY(0,stepXY)">⬇ Y-</button>
+        <button onclick="moveXY(-stepXY,0)">⬅ X-</button>
+        <button onclick="homeAll()">🏠 Home</button>
+        <button onclick="moveXY(stepXY,0)">➡ X+</button>
+        <button onclick="moveZ(stepZ)">🔼 Z+</button>
+        <button onclick="moveZ(0)">●</button>
+        <button onclick="moveZ(-stepZ)">🔽 Z-</button>
+      </div>
 
-<!-- ============================================================
-     PANNEAU DROIT
-     ============================================================ -->
-<div>
+      <div style="margin-top:6px" class="row">
+        <div>
+          <div class="muted">Pas XY (mm)</div>
+          <input id="stepXY" type="number" value="20">
+        </div>
+        <div>
+          <div class="muted">Pas Z (mm)</div>
+          <input id="stepZ" type="number" value="10">
+        </div>
+        <div>
+          <div class="muted">Vitesse F (mm/min)</div>
+          <input id="feedF" type="number" value="1000">
+        </div>
+      </div>
 
-    <div class="card">
-        <h2><i class="fa-solid fa-table-cells"></i> Grille de culture</h2>
-        <canvas id="grilleCanvas" width="700" height="500"></canvas>
+      <div class="axisRow" style="margin-top:12px">
+        <div class="muted">Axes (animation)</div>
+        <div class="axisLine axisX"><div class="axisMarker axisMarkerX"></div></div>
+        <div class="axisLine axisY"><div class="axisMarker"></div></div>
+        <div class="axisLine axisZ"><div class="axisMarker"></div></div>
+      </div>
+
     </div>
 
-</div>
+    <div class="card visionRow" style="margin-top:14px">
+      <div style="flex:0 0 340px">
+        <h3><i class="fa-solid fa-camera"></i> Vision</h3>
+        <video id="videoIn" width="320" height="240" autoplay playsinline style="border-radius:8px; border:1px solid #dbe7ff"></video>
+      </div>
+      <div style="flex:0 0 340px">
+        <h3>Masque mauvaises herbes</h3>
+        <canvas id="maskCanvas" width="320" height="240" class="vision"></canvas>
+      </div>
+      <div style="flex:1; padding-left:10px">
+        <h3>Résultats</h3>
+        <div class="muted">Pourcentage vert global : <b id="pcGreen">0</b>%</div>
+        <div class="muted">Weeding actif : <b id="weedingActive">oui</b></div>
+        <div style="margin-top:10px" class="row">
+          <button id="btnStartCam">Démarrer caméra</button>
+          <button id="btnStopCam" class="ghost">Arrêter</button>
+        </div>
+        <div style="margin-top:12px" class="muted">Exclusion: rayon 30 mm autour du centre de la case (ignore la plante).</div>
+      </div>
+    </div>
 
-</div>
+  </section>
+</main>
 
-<!-- =================================================================
-     JAVASCRIPT
-================================================================= -->
 <script>
-
 /* ============================================================
-   1. WEB SERIAL — Connexion propre & asynchrone
+   UTILITAIRES, ÉTAT GLOBAL
    ============================================================ */
-let port;
+const $ = id => document.getElementById(id);
+
+let L = Number($('inputL').value), W = Number($('inputW').value);
+let Nx = Number($('inputNx').value), Ny = Number($('inputNy').value);
+let cellL = L / Nx, cellW = W / Ny;
+let grid = []; // grid[j][i] = {plant: index | null}
+let plants = []; // array of {name,color}
+let selectedPlant = null;
+let gcodeBuffer = [];
+let pos = {x:0,y:0,z:0};
+let disk = $('diskZ');
+let gridCanvas = $('gridCanvas');
+let gctx = gridCanvas.getContext('2d');
+let serialPort = null;
+let textDecoder;
 let reader;
-let inputDone;
-let outputDone;
-let outputStream;
+let keepReading = false;
+let writerStream;
+let moistureAutoTimer = null;
 
-async function connectSerial() {
-    try {
-        logSerial("🔍 Demande de port série...");
-
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-
-        logSerial("✅ Port ouvert !");
-
-        // Output stream
-        const encoder = new TextEncoderStream();
-        outputDone = encoder.readable.pipeTo(port.writable);
-        outputStream = encoder.writable;
-
-        // Input stream
-        const decoder = new TextDecoderStream();
-        inputDone = port.readable.pipeTo(decoder.writable);
-        reader = decoder.readable.getReader();
-
-        listenToPort();
-
-    } catch (err) {
-        logSerial("❌ Erreur WebSerial : " + err);
-    }
+/* ---------------- load defaults from localStorage if exist ---------------- */
+function loadState(){
+  const s = localStorage.getItem('farmbot_state_v1');
+  if (!s) return false;
+  try {
+    const obj = JSON.parse(s);
+    L = obj.L; W = obj.W; Nx = obj.Nx; Ny = obj.Ny;
+    $('inputL').value = L; $('inputW').value = W; $('inputNx').value = Nx; $('inputNy').value = Ny;
+    cellL = L / Nx; cellW = W / Ny;
+    grid = obj.grid || [];
+    plants = obj.plants || [];
+    renderPlantInputs();
+    renderPlantSelector();
+    drawGrid();
+    return true;
+  } catch(e){console.warn(e); return false;}
 }
+loadState();
 
-async function listenToPort() {
-    try {
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value) logSerial("📥 " + value);
-        }
-    } catch (err) {
-        logSerial("❌ Erreur lecture : " + err);
-    }
-}
-
-async function sendSerial(msg) {
-    if (!outputStream) {
-        logSerial("⚠️ Non connecté !");
-        return;
-    }
-    const writer = outputStream.getWriter();
-    await writer.write(msg + "\n");
-    writer.releaseLock();
-    logSerial("📤 " + msg);
-}
-
-function logSerial(msg) {
-    let box = document.getElementById("serialLog");
-    box.innerHTML += msg + "<br>";
-    box.scrollTop = box.scrollHeight;
+/* ---------------- save state ---------------- */
+function saveState(){
+  const obj = { L, W, Nx, Ny, grid, plants };
+  localStorage.setItem('farmbot_state_v1', JSON.stringify(obj));
 }
 
 /* ============================================================
-   2. Génération de la grille
+   PLANT MANAGER (6 plants)
    ============================================================ */
-function genererGrille() {
-    let c = document.getElementById("grilleCanvas");
-    let ctx = c.getContext("2d");
-    ctx.clearRect(0,0,c.width,c.height);
+const defaultColors = ['#FF7A7A','#7AD1A4','#FFD36B','#9BC7FF','#C08CFF','#FFB0E0'];
 
-    let nx = parseInt(document.getElementById("nx").value);
-    let ny = parseInt(document.getElementById("ny").value);
-
-    let w = c.width / nx;
-    let h = c.height / ny;
-
-    ctx.strokeStyle = "#8a9bb5";
-    ctx.lineWidth = 1.2;
-
-    for (let i = 0; i <= nx; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i*w,0);
-        ctx.lineTo(i*w,c.height);
-        ctx.stroke();
-    }
-    for (let j = 0; j <= ny; j++) {
-        ctx.beginPath();
-        ctx.moveTo(0,j*h);
-        ctx.lineTo(c.width,j*h);
-        ctx.stroke();
-    }
+function initDefaultPlants(){
+  if (plants.length === 6) return;
+  plants = [];
+  const defaults = ['Plante 1','Plante 2','Plante 3','Plante 4','Plante 5','Plante 6'];
+  for(let i=0;i<6;i++) plants.push({name: defaults[i], color: defaultColors[i]});
 }
+initDefaultPlants();
+renderPlantInputs();
+renderPlantSelector();
+
+function renderPlantInputs(){
+  const wrap = $('plantInputs');
+  wrap.innerHTML = '';
+  for(let i=0;i<6;i++){
+    const p = plants[i] || {name:`Plante ${i+1}`, color:defaultColors[i]};
+    const row = document.createElement('div');
+    row.style.display='flex'; row.style.gap='8px'; row.style.marginBottom='8px'; row.style.alignItems='center';
+
+    const inp = document.createElement('input'); inp.type='text'; inp.value=p.name; inp.style.flex='1';
+    inp.oninput = ()=> { plants[i].name = inp.value; renderPlantSelector(); saveState(); };
+
+    const color = document.createElement('input'); color.type='color'; color.value = p.color;
+    color.oninput = ()=> { plants[i].color = color.value; renderPlantSelector(); saveState(); };
+
+    const pickBtn = document.createElement('button'); pickBtn.className='small'; pickBtn.textContent='Sélection';
+    pickBtn.onclick = ()=> { selectedPlant = i; highlightSelectedPlant(); };
+
+    row.appendChild(inp); row.appendChild(color); row.appendChild(pickBtn);
+    wrap.appendChild(row);
+  }
+}
+
+function renderPlantSelector(){
+  const sel = $('plantSelector'); sel.innerHTML='';
+  for(let i=0;i<6;i++){
+    const p = plants[i];
+    const b = document.createElement('button');
+    b.className='plant-badge';
+    b.style.border = selectedPlant===i ? `2px solid ${p.color}` : '1px solid #eef2ff';
+    b.onclick = ()=> { selectedPlant = i; highlightSelectedPlant(); };
+    const dot = document.createElement('span'); dot.className='color-dot'; dot.style.background = p.color;
+    const name = document.createElement('span'); name.textContent = p.name;
+    b.appendChild(dot); b.appendChild(name);
+    sel.appendChild(b);
+  }
+}
+
+function highlightSelectedPlant(){
+  renderPlantSelector();
+}
+
+/* ============================================================
+   GRID MANAGEMENT
+   ============================================================ */
+function initGrid(){
+  grid = [];
+  for(let j=0;j<Ny;j++){
+    const row = [];
+    for(let i=0;i<Nx;i++) row.push({plant:null});
+    grid.push(row);
+  }
+  saveState();
+}
+initGrid();
+
+$('btnGen').addEventListener('click', ()=>{
+  L = Number($('inputL').value); W = Number($('inputW').value);
+  Nx = Math.max(1, Number($('inputNx').value)); Ny = Math.max(1, Number($('inputNy').value));
+  cellL = L / Nx; cellW = W / Ny;
+  $('gridInfo').textContent = `Nx × Ny : ${Nx} × ${Ny}`;
+  initGrid();
+  drawGrid();
+  saveState();
+});
+
+$('btnExport').addEventListener('click', ()=> exportCSV());
+
+gridCanvas.addEventListener('click', (ev)=>{
+  const rect = gridCanvas.getBoundingClientRect();
+  const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+  const i = Math.floor(mx / (gridCanvas.width / Nx));
+  const j = Math.floor(my / (gridCanvas.height / Ny));
+  if (ev.shiftKey && selectedPlant !== null){
+    grid[j][i].plant = selectedPlant;
+    drawGrid(); saveState();
+  } else {
+    // simple click -> move to center and optionally seed
+    goToCase(i,j, true); // true = move + update pos
+  }
+});
+
+function drawGrid(){
+  const cw = gridCanvas.width, ch = gridCanvas.height;
+  gctx.clearRect(0,0,cw,ch);
+  // background
+  gctx.fillStyle = '#ffffff';
+  gctx.fillRect(0,0,cw,ch);
+
+  const w = cw / Nx, h = ch / Ny;
+  // cells
+  for(let j=0;j<Ny;j++){
+    for(let i=0;i<Nx;i++){
+      const cx = i*w + w/2, cy = j*h + h/2;
+      // fill color if plant
+      const pidx = grid[j][i].plant;
+      if (pidx !== null && plants[pidx]){
+        gctx.fillStyle = hexToRgba(plants[pidx].color, 0.18);
+        gctx.fillRect(i*w+2, j*h+2, w-4, h-4);
+        // plant name
+        gctx.fillStyle = '#07304a';
+        gctx.font = '12px Inter, sans-serif';
+        gctx.fillText(plants[pidx].name, i*w + 8, j*h + 18);
+      }
+      // outline
+      gctx.strokeStyle = '#e6eefc';
+      gctx.strokeRect(i*w, j*h, w, h);
+    }
+  }
+  // draw position marker
+  updateDiskPosition();
+}
+drawGrid();
+
+function hexToRgba(hex, alpha){
+  const c = hex.replace('#','');
+  const r = parseInt(c.substring(0,2),16);
+  const g = parseInt(c.substring(2,4),16);
+  const b = parseInt(c.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/* ============================================================
+   POSITION / DISK UI
+   ============================================================ */
+function updateDiskPosition(){
+  const cw = gridCanvas.width, ch = gridCanvas.height;
+  // convert pos.x in mm to canvas px: x/L * width
+  const px = (pos.x / L) * cw;
+  const py = (pos.y / W) * ch;
+  $('diskZ').style.left = `${Math.max(6, Math.min(cw-6, px))}px`;
+  $('diskZ').style.top  = `${Math.max(6, Math.min(ch-6, py))}px`;
+  if (pos.z < 0) { $('diskZ').classList.remove('up'); $('diskZ').classList.add('down'); } else { $('diskZ').classList.remove('down'); $('diskZ').classList.add('up'); }
+  $('posX').textContent = pos.x.toFixed(0);
+  $('posY').textContent = pos.y.toFixed(0);
+  $('posZ').textContent = pos.z.toFixed(0);
+}
+updateDiskPosition();
+
+/* ============================================================
+   MOVE / G-CODE generation and send
+   ============================================================ */
+function sendSerialLine(line){
+  if (!serialPort || !writerStream){ appendLog(`⚠️ Non connecté : ${line}`); return; }
+  const w = writerStream.getWriter();
+  w.write(line + '\n');
+  w.releaseLock();
+  appendLog('→ ' + line);
+}
+
+$('btnSendCmd').addEventListener('click', ()=>{
+  const cmd = $('quickCmd').value.trim();
+  if (!cmd) return;
+  sendSerialLine(cmd);
+});
+
+function moveXY(dx, dy){
+  pos.x += dx; pos.y += dy;
+  // send G0
+  const line = `G0 X${pos.x.toFixed(2)} Y${pos.y.toFixed(2)}`;
+  sendSerialLine(line);
+  updateDiskPosition();
+}
+function moveZ(dz){
+  pos.z += dz;
+  const line = `G0 Z${pos.z.toFixed(2)}`;
+  sendSerialLine(line);
+  updateDiskPosition();
+}
+function homeAll(){
+  pos = {x:0,y:0,z:0};
+  sendSerialLine('G0 X0 Y0 Z0');
+  updateDiskPosition();
+}
+
+/* goto case i,j
+   if doSeed true => only move to center and update pos (UI)
+   if seedAction is true => also perform the semis sequence for that plant if present
+*/
+function goToCase(i,j, doMove=true, seedAction=false){
+  const centerXmm = (i + 0.5) * cellL;
+  const centerYmm = (j + 0.5) * cellW;
+  if (doMove){
+    sendSerialLine(`G0 Z0`); // safety
+    sendSerialLine(`G0 X${centerXmm.toFixed(2)} Y${centerYmm.toFixed(2)} Z0`);
+    pos.x = centerXmm; pos.y = centerYmm; pos.z = 0;
+    updateDiskPosition();
+  }
+  if (seedAction){
+    const pidx = grid[j][i].plant;
+    if (pidx === null) { appendLog(`Case (${i},${j}) vide`); return; }
+    seedAtCase(i,j,pidx);
+  }
+}
+
+/* semis sequence for plant index p (0..5) at case i,j */
+function seedAtCase(i,j,pIdx){
+  const k = pIdx + 1;
+  const zPrise = -400; // example
+  const zDepth = -50;
+  const centerXmm = (i + 0.5) * cellL;
+  const centerYmm = (j + 0.5) * cellW;
+  let seq = [
+    'G0 Z0',
+    `G0 X0 Y${100*k} Z-400`,
+    `G1 Z${zPrise}`,
+    'M3 P1',
+    'G4 P200',
+    'G0 Z0',
+    `G0 X${centerXmm.toFixed(2)} Y${centerYmm.toFixed(2)} Z0`,
+    `G1 Z${zDepth} F100`,
+    'M5',
+    'G0 Z0'
+  ];
+  seq.forEach(line => sendSerialLine(line));
+}
+
+/* Generate G-code for all sown cases and put in buffer */
+$('btnGenSeedGcode').addEventListener('click', ()=>{
+  gcodeBuffer = [];
+  gcodeBuffer.push('; G-code généré par interface FarmBot');
+  gcodeBuffer.push('G0 Z0');
+  for(let j=0;j<Ny;j++){
+    for(let i=0;i<Nx;i++){
+      const p = grid[j][i].plant;
+      if (p === null) continue;
+      const k = p+1;
+      const cx = ((i+0.5)*cellL).toFixed(2);
+      const cy = ((j+0.5)*cellW).toFixed(2);
+      gcodeBuffer.push(`; semis ${plants[p].name} case (${i},${j})`);
+      gcodeBuffer.push('G0 Z0');
+      gcodeBuffer.push(`G0 X0 Y${100*k} Z-400`);
+      gcodeBuffer.push(`G1 Z-405`);
+      gcodeBuffer.push('M3 P1');
+      gcodeBuffer.push('G4 P200');
+      gcodeBuffer.push('G0 Z0');
+      gcodeBuffer.push(`G0 X${cx} Y${cy} Z0`);
+      gcodeBuffer.push('G1 Z-50 F100');
+      gcodeBuffer.push('M5');
+      gcodeBuffer.push('G0 Z0');
+    }
+  }
+  appendLog("G-Code généré (" + gcodeBuffer.length + " lignes). Appuyez Envoyer pour transmettre.");
+});
+
+/* send all gcode buffer lines */
+$('btnSendAll').addEventListener('click', async ()=>{
+  if (!writerStream){ appendLog("Non connecté."); return; }
+  for(const line of gcodeBuffer){
+    sendSerialLine(line);
+    await sleep(40);
+  }
+  appendLog('Transmission terminée.');
+});
+
+/* ============================================================
+   SERIAL (WebSerial) — connexion, lecture, écriture
+   ============================================================ */
+$('btnConnect').addEventListener('click', connect);
+$('btnDisconnect').addEventListener('click', disconnect);
+
+async function connect(){
+  if (!("serial" in navigator)){ alert("Web Serial non supporté"); return; }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    appendLog("✅ Port ouvert");
+    $('serialInfo').textContent = "connecté";
+
+    const textEncoder = new TextEncoderStream();
+    textEncoder.readable.pipeTo(serialPort.writable);
+    writerStream = textEncoder.writable;
+
+    textDecoder = new TextDecoderStream();
+    serialPort.readable.pipeTo(textDecoder.writable);
+    reader = textDecoder.readable.getReader();
+
+    keepReading = true;
+    readLoop();
+  } catch(e){ appendLog("Erreur: " + e); }
+}
+async function readLoop(){
+  while(keepReading){
+    try{
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value){
+        handleSerialIn(value.trim());
+      }
+    } catch(e){ appendLog("Lecture erreur: "+e); break; }
+  }
+}
+async function disconnect(){
+  keepReading = false;
+  try { if (reader) { await reader.cancel(); reader = null; } } catch(e){}
+  try { if (serialPort) await serialPort.close(); } catch(e){}
+  serialPort = null; writerStream = null;
+  appendLog("🔌 Déconnecté");
+  $('serialInfo').textContent = "non connecté";
+}
+
+function appendLog(msg){
+  const box = $('serialLog');
+  const now = new Date(); const ts = now.toLocaleTimeString();
+  box.innerHTML += `<div>[${ts}] ${escapeHtml(msg)}</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+/* parse incomming serial messages */
+function handleSerialIn(text){
+  appendLog('← ' + text);
+  // parse moisture response lines like: MOISTURE i j value
+  const parts = text.split(/\s+/);
+  if (parts[0] === 'MOISTURE'){
+    // MOISTURE i j val
+    const i = parseInt(parts[1]), j = parseInt(parts[2]), val = parseFloat(parts[3]);
+    appendLog(`Lecture humidité case (${i},${j}) = ${val}%`);
+    // store result and apply logic if watering waiting
+    // we use a simple in-memory map
+    moistureResponses[`${i},${j}`] = val;
+  }
+  if (parts[0] === 'OK' || parts[0] === 'ACK') {
+    // just log
+  }
+}
+
+/* ============================================================
+   MOISTURE / ARROSAGE FLOW (frontend scheduler)
+   ============================================================ */
+let moistureResponses = {}; // map "i,j" -> percent
+let autoMode = false;
+
+$('btnStartAuto').addEventListener('click', ()=>{
+  const mins = Number($('waterIntervalMins').value);
+  if (autoMode) return;
+  autoMode = true;
+  appendLog(`Démarrage surveillance automatique toutes les ${mins} minutes`);
+  // start immediate then schedule
+  runMoistureCycle();
+  moistureAutoTimer = setInterval(runMoistureCycle, mins * 60 * 1000);
+  $('btnStartAuto').disabled = true; $('btnStopAuto').disabled = false;
+});
+
+$('btnStopAuto').addEventListener('click', ()=>{
+  autoMode = false; clearInterval(moistureAutoTimer);
+  appendLog('Surveillance automatique arrêtée');
+  $('btnStartAuto').disabled = false; $('btnStopAuto').disabled = true;
+});
+
+/* run one full moisture cycle: iterate over planted cases, move and request moisture read */
+async function runMoistureCycle(){
+  appendLog('--- Démarrage cycle humidité ---');
+  for(let j=0;j<Ny;j++){
+    for(let i=0;i<Nx;i++){
+      if (grid[j][i].plant === null) continue;
+      // move to case center
+      const cx = (i + 0.5) * cellL;
+      const cy = (j + 0.5) * cellW;
+      sendSerialLine(`G0 Z0`);
+      sendSerialLine(`G0 X${cx.toFixed(2)} Y${cy.toFixed(2)} Z0`);
+      await sleep(300); // small wait for Arduino to move (should be replaced by ACK / position confirmation)
+      // ask for moisture read (protocol)
+      appendLog(`Demande humidité case (${i},${j})`);
+      // store sentinel
+      delete moistureResponses[`${i},${j}`];
+      sendSerialLine(`READ_MOISTURE ${i} ${j}`);
+      // wait for response with timeout
+      let val = await waitForMoistureResponse(i,j, 8000); // 8s timeout
+      if (val === null) {
+        appendLog(`⚠️ Pas de réponse humidité pour (${i},${j})`);
+        continue;
+      }
+      const threshold = Number($('moistureThreshold').value);
+      if (val < threshold){
+        appendLog(`Humidité ${val}% < seuil ${threshold}% → ARROSAGE`);
+        // send water ON
+        sendSerialLine('WATER_ON');
+        const dur = Number($('waterDuration').value);
+        await sleep(dur*1000);
+        sendSerialLine('WATER_OFF');
+        appendLog(`Arrosage ${dur}s effectué pour (${i},${j})`);
+      } else {
+        appendLog(`Humidité ${val}% >= seuil — pas d'arrosage`);
+      }
+      await sleep(300);
+    }
+  }
+  appendLog('--- Fin cycle humidité ---');
+}
+
+/* wait for moisture response from map */
+function waitForMoistureResponse(i,j,timeoutMs=5000){
+  return new Promise((resolve)=>{
+    const key = `${i},${j}`;
+    const start = Date.now();
+    const check = () => {
+      if (moistureResponses.hasOwnProperty(key)){
+        resolve(moistureResponses[key]);
+      } else if (Date.now() - start > timeoutMs){
+        resolve(null);
+      } else {
+        setTimeout(check, 200);
+      }
+    };
+    check();
+  });
+}
+
+/* ============================================================
+   VISION (webcam) — capture + simple HSV green mask + exclusion circle
+   ============================================================ */
+let camStream = null;
+$('btnStartCam').addEventListener('click', startCamera);
+$('btnStopCam').addEventListener('click', stopCamera);
+
+async function startCamera(){
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({video:{width:320,height:240}});
+    $('videoIn').srcObject = camStream;
+    $('videoIn').play();
+    processVideoFrame();
+  } catch(e){ alert('Erreur caméra: '+e); }
+}
+
+function stopCamera(){
+  if (camStream){
+    camStream.getTracks().forEach(t=>t.stop());
+    camStream = null;
+  }
+}
+
+/* process video frames, create HSV mask, exclude circle radius 30mm mapped to pixels */
+function processVideoFrame(){
+  if (!camStream) return;
+  const v = $('videoIn');
+  const maskCanvas = $('maskCanvas');
+  const mctx = maskCanvas.getContext('2d');
+  mctx.drawImage(v,0,0, maskCanvas.width, maskCanvas.height);
+  const img = mctx.getImageData(0,0,maskCanvas.width, maskCanvas.height);
+  const data = img.data;
+  let greenCount = 0;
+  const totalPixels = maskCanvas.width * maskCanvas.height;
+
+  // compute px radius for 30 mm roughly
+  const pxPerMmX = maskCanvas.width / L;
+  const pxPerMmY = maskCanvas.height / W;
+  const pxPerMm = (pxPerMmX + pxPerMmY)/2;
+  const Rpx = Math.round(pxPerMm * 30);
+  const cx = Math.round(maskCanvas.width / 2);
+  const cy = Math.round(maskCanvas.height / 2);
+
+  for(let i=0;i<data.length;i+=4){
+    const r = data[i], g = data[i+1], b = data[i+2];
+    // convert to HSV approx
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    const vval = max;
+    const delta = max - min;
+    let h = 0;
+    if (delta!==0){
+      if (max === r) h = 60 * (((g - b) / delta) % 6);
+      else if (max === g) h = 60 * (((b - r) / delta) + 2);
+      else h = 60 * (((r - g) / delta) + 4);
+      if (h<0) h+=360;
+    }
+    const s = max === 0 ? 0 : (delta / max) * 100;
+    const val = (vval / 255) * 100;
+    const isGreen = (h >= 35 && h <= 100 && s >= 30 && val >= 20);
+    const pxIndex = (i/4) % maskCanvas.width;
+    const pyIndex = Math.floor((i/4)/maskCanvas.width);
+    // exclusion circle
+    const dx = pxIndex - cx, dy = pyIndex - cy;
+    const dist2 = dx*dx + dy*dy;
+    if (isGreen && dist2 > Rpx*Rpx){
+      // highlight green outside exclusion
+      data[i]=0; data[i+1]=255; data[i+2]=0; data[i+3]=255;
+      greenCount++;
+    } else {
+      // black
+      data[i]=0; data[i+1]=0; data[i+2]=0; data[i+3]=255;
+    }
+  }
+  mctx.putImageData(img,0,0);
+  // draw exclusion circle overlay
+  mctx.beginPath(); mctx.strokeStyle='rgba(0,120,255,0.7)'; mctx.lineWidth=2;
+  mctx.arc(cx,cy,Rpx,0,Math.PI*2); mctx.stroke();
+
+  const pc = Math.round((greenCount/totalPixels)*100);
+  $('pcGreen').textContent = pc;
+  $('weedingActive').textContent = pc <= 35 ? 'oui' : 'non (désactivé)';
+
+  requestAnimationFrame(processVideoFrame);
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* simple CSV export */
+function exportCSV(){
+  let rows = [['i','j','x_mm','y_mm','plantIndex','plantName','plantColor']];
+  for(let j=0;j<Ny;j++){
+    for(let i=0;i<Nx;i++){
+      const p = grid[j][i].plant;
+      const x = ((i+0.5)*cellL).toFixed(2);
+      const y = ((j+0.5)*cellW).toFixed(2);
+      rows.push([i,j,x,y, p===null?'':p, p===null?'':(plants[p] ? plants[p].name : ''), p===null?'':(plants[p] ? plants[p].color : '')]);
+    }
+  }
+  const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='farmgrid_export.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   BOOTSTRAP: wire up basic buttons and defaults
+   ============================================================ */
+$('btnSavePlants').addEventListener('click', ()=>{
+  saveState(); appendLog('Plantes et grille sauvegardées localement.');
+});
+$('btnLoadPlants').addEventListener('click', ()=>{
+  loadState(); appendLog('État restauré (si disponible).');
+});
+$('btnStartCam').addEventListener('click', ()=> startCameraIfNeeded());
+$('btnStopCam').addEventListener('click', ()=> stopCamera());
+$('btnGenSeedGcode').addEventListener('click', ()=> { $('btnSendAll').disabled=false; appendLog('G-Code prêt. Cliquez Envoyer pour transmettre.'); });
+
+function startCameraIfNeeded(){ if (!camStream) startCamera(); }
+
+/* initial UI populate */
+$('gridInfo').textContent = `Nx × Ny : ${Nx} × ${Ny}`;
+renderPlantSelector();
+drawGrid();
+
+/* expose goToCase to console for debug */
+window.goToCase = goToCase;
+window.seedAtCase = seedAtCase;
+window.saveState = saveState;
+window.loadState = loadState;
 
 </script>
 </body>
