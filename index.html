@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmBot Control Interface</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 2em;
+        }
+        .section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .input-field {
+            display: flex;
+            flex-direction: column;
+        }
+        .input-field label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .input-field input {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .input-field input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .grid-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        canvas {
+            border: 3px solid #667eea;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: #fff;
+        }
+        .plant-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .plant-btn {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .plant-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .debug-panel {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.connected { background: #00ff00; }
+        .status-indicator.disconnected { background: #ff0000; }
+        .sensor-display {
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+        }
+        .sensor-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            flex: 1;
+            text-align: center;
+        }
+        .sensor-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 8px;
+        }
+        .vision-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .vision-panel {
+            flex: 1;
+        }
+        .vision-panel h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 FarmBot Control Interface</h1>
+
+        <!-- Configuration Section -->
+        <div class="section">
+            <h2>📐 Configuration de la Grille</h2>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>Longueur (L) en mm:</label>
+                    <input type="number" id="length" value="900" min="100">
+                </div>
+                <div class="input-field">
+                    <label>Largeur (W) en mm:</label>
+                    <input type="number" id="width" value="400" min="100">
+                </div>
+                <div class="input-field">
+                    <label>Cases Axe-X (Nx):</label>
+                    <input type="number" id="nx" value="9" min="1" max="20">
+                </div>
+                <div class="input-field">
+                    <label>Cases Axe-Y (Ny):</label>
+                    <input type="number" id="ny" value="4" min="1" max="20">
+                </div>
+            </div>
+            <button onclick="createGrid()">Créer la Grille</button>
+        </div>
+
+        <!-- Plants Section -->
+        <div class="section">
+            <h2>🌿 Configuration des Plantes</h2>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>Plante 1:</label>
+                    <input type="text" id="plant1" value="Tomate">
+                </div>
+                <div class="input-field">
+                    <label>Plante 2:</label>
+                    <input type="text" id="plant2" value="Salade">
+                </div>
+                <div class="input-field">
+                    <label>Plante 3:</label>
+                    <input type="text" id="plant3" value="Carotte">
+                </div>
+                <div class="input-field">
+                    <label>Plante 4:</label>
+                    <input type="text" id="plant4" value="Radis">
+                </div>
+                <div class="input-field">
+                    <label>Plante 5:</label>
+                    <input type="text" id="plant5" value="Poivron">
+                </div>
+                <div class="input-field">
+                    <label>Plante 6:</label>
+                    <input type="text" id="plant6" value="Basilic">
+                </div>
+            </div>
+            <div class="plant-selector" id="plantSelector"></div>
+        </div>
+
+        <!-- Grid Display -->
+        <div class="section">
+            <h2>🎨 Grille de Culture</h2>
+            <div class="grid-container">
+                <canvas id="gridCanvas" width="900" height="400"></canvas>
+            </div>
+            <div style="margin-top: 15px;">
+                <button onclick="generateGCode()">Générer G-Code Semis</button>
+                <button onclick="startWatering()">Démarrer Arrosage</button>
+                <button onclick="startWeedDetection()">Démarrer Détection Mauvaises Herbes</button>
+            </div>
+        </div>
+
+        <!-- Arduino Connection -->
+        <div class="section">
+            <h2>🔌 Connexion Arduino</h2>
+            <button id="connectBtn" onclick="connectArduino()">Connecter Arduino</button>
+            <span class="status-indicator disconnected" id="statusIndicator"></span>
+            <span id="statusText">Déconnecté</span>
+            
+            <h3 style="margin-top: 20px;">Capteurs de Position:</h3>
+            <div class="sensor-display">
+                <div class="sensor-item">
+                    <div>Axe X (C0)</div>
+                    <div class="sensor-value" id="sensorX">0</div>
+                    <button onclick="adjustSensor('X', 1)">+</button>
+                    <button onclick="adjustSensor('X', -1)">-</button>
+                </div>
+                <div class="sensor-item">
+                    <div>Axe Y (C1)</div>
+                    <div class="sensor-value" id="sensorY">0</div>
+                    <button onclick="adjustSensor('Y', 1)">+</button>
+                    <button onclick="adjustSensor('Y', -1)">-</button>
+                </div>
+                <div class="sensor-item">
+                    <div>Axe Z (C2)</div>
+                    <div class="sensor-value" id="sensorZ">0</div>
+                    <button onclick="adjustSensor('Z', 1)">+</button>
+                    <button onclick="adjustSensor('Z', -1)">-</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vision System -->
+        <div class="section">
+            <h2>📹 Système de Vision</h2>
+            <button onclick="startVision()">Démarrer Caméra</button>
+            <button onclick="stopVision()">Arrêter Caméra</button>
+            <div class="vision-container">
+                <div class="vision-panel">
+                    <h3>Vidéo Réelle</h3>
+                    <canvas id="videoCanvas" width="320" height="240"></canvas>
+                </div>
+                <div class="vision-panel">
+                    <h3>Détection Mauvaises Herbes</h3>
+                    <canvas id="maskCanvas" width="320" height="240"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Console -->
+        <div class="section">
+            <h2>🐛 Console de Débogage</h2>
+            <div class="debug-panel" id="debugConsole"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let gridData = [];
+        let selectedPlant = null;
+        let L = 900, W = 400, Nx = 9, Ny = 4;
+        let sensorX = 0, sensorY = 0, sensorZ = 0;
+        let arduinoConnected = false;
+        let port = null;
+        let videoStream = null;
+        let animationId = null;
+        const plantColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#00b894'];
+
+        // Initialize
+        createGrid();
+        updatePlantSelector();
+
+        function log(message) {
+            const console = document.getElementById('debugConsole');
+            const time = new Date().toLocaleTimeString();
+            console.innerHTML += `[${time}] ${message}\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function updatePlantSelector() {
+            const selector = document.getElementById('plantSelector');
+            selector.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const plantName = document.getElementById(`plant${i}`).value;
+                const btn = document.createElement('button');
+                btn.className = 'plant-btn';
+                btn.textContent = `${i}. ${plantName}`;
+                btn.style.borderLeft = `6px solid ${plantColors[i-1]}`;
+                btn.onclick = () => selectPlant(i);
+                selector.appendChild(btn);
+            }
+        }
+
+        function selectPlant(plantNum) {
+            selectedPlant = plantNum;
+            document.querySelectorAll('.plant-btn').forEach((btn, idx) => {
+                btn.classList.toggle('selected', idx === plantNum - 1);
+            });
+            log(`Plante sélectionnée: ${document.getElementById(`plant${plantNum}`).value}`);
+        }
+
+        function createGrid() {
+            L = parseFloat(document.getElementById('length').value);
+            W = parseFloat(document.getElementById('width').value);
+            Nx = parseInt(document.getElementById('nx').value);
+            Ny = parseInt(document.getElementById('ny').value);
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            gridData = Array(Nx).fill().map(() => Array(Ny).fill(0));
+            
+            log(`Grille créée: ${Nx}x${Ny} cases (${cellWidth.toFixed(1)}x${cellHeight.toFixed(1)}mm par case)`);
+            updatePlantSelector();
+            drawGrid();
+        }
+
+        function drawGrid() {
+            const canvas = document.getElementById('gridCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = L;
+            canvas.height = W;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            // Draw cells
+            for (let i = 0; i < Nx; i++) {
+                for (let j = 0; j < Ny; j++) {
+                    const x = i * cellWidth;
+                    const y = j * cellHeight;
+
+                    // Fill cell with plant color
+                    if (gridData[i][j] > 0) {
+                        ctx.fillStyle = plantColors[gridData[i][j] - 1] + '80';
+                        ctx.fillRect(x, y, cellWidth, cellHeight);
+                    }
+
+                    // Draw grid lines
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+                    // Draw cell center marker
+                    const centerX = x + cellWidth / 2;
+                    const centerY = y + cellHeight / 2;
+                    ctx.fillStyle = '#666';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+
+            // Draw position indicator (semi-transparent circles)
+            const posX = sensorX * cellWidth + cellWidth / 2;
+            const posY = sensorY * cellHeight + cellHeight / 2;
+
+            // Z position indicator
+            ctx.fillStyle = sensorZ === 0 ? 'rgba(0, 0, 255, 0.3)' : 'rgba(255, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.arc(posX, posY, 15, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Position marker
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(posX, posY, 15, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            canvas.onclick = (e) => {
+                if (!selectedPlant) {
+                    alert('Sélectionnez une plante d\'abord!');
+                    return;
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                const i = Math.floor(clickX / cellWidth);
+                const j = Math.floor(clickY / cellHeight);
+
+                if (i >= 0 && i < Nx && j >= 0 && j < Ny) {
+                    gridData[i][j] = selectedPlant;
+                    const plantName = document.getElementById(`plant${selectedPlant}`).value;
+                    log(`Case (${i},${j}) assignée à: ${plantName}`);
+                    drawGrid();
+                }
+            };
+        }
+
+        function adjustSensor(axis, delta) {
+            if (axis === 'X') {
+                sensorX = Math.max(0, Math.min(Nx - 1, sensorX + delta));
+                document.getElementById('sensorX').textContent = sensorX;
+            } else if (axis === 'Y') {
+                sensorY = Math.max(0, Math.min(Ny - 1, sensorY + delta));
+                document.getElementById('sensorY').textContent = sensorY;
+            } else if (axis === 'Z') {
+                sensorZ = Math.max(0, Math.min(2, sensorZ + delta));
+                document.getElementById('sensorZ').textContent = sensorZ;
+            }
+            log(`Capteur ${axis} ajusté: ${eval('sensor' + axis)}`);
+            drawGrid();
+        }
+
+        async function connectArduino() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                arduinoConnected = true;
+                document.getElementById('statusIndicator').className = 'status-indicator connected';
+                document.getElementById('statusText').textContent = 'Connecté';
+                log('✓ Arduino connecté avec succès');
+            } catch (error) {
+                log(`✗ Erreur de connexion: ${error.message}`);
+                alert('Impossible de se connecter à l\'Arduino');
+            }
+        }
+
+        function generateGCode() {
+            let gcode = '; FarmBot Semis G-Code\n';
+            gcode += `; Grille: ${Nx}x${Ny}, Surface: ${L}x${W}mm\n\n`;
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            for (let i = 0; i < Nx; i++) {
+                for (let j = 0; j < Ny; j++) {
+                    const plantType = gridData[i][j];
+                    if (plantType === 0) continue;
+
+                    const xCenter = i * cellWidth + cellWidth / 2;
+                    const yCenter = j * cellHeight + cellHeight / 2;
+                    const yTool = plantType * 100;
+
+                    gcode += `; Semis case (${i},${j}) - Plante ${plantType}\n`;
+                    gcode += `G0 Z0\n`;
+                    gcode += `G0 X0 Y${yTool} Z-400\n`;
+                    gcode += `G1 Z-450 F100\n`;
+                    gcode += `M3 P1 ; Activer pompe\n`;
+                    gcode += `G4 P500 ; Attendre 0.5s\n`;
+                    gcode += `G0 Z0\n`;
+                    gcode += `G0 X${xCenter.toFixed(2)} Y${yCenter.toFixed(2)} Z0\n`;
+                    gcode += `G1 Z-200 F100\n`;
+                    gcode += `M5 ; Désactiver pompe\n`;
+                    gcode += `G0 Z0\n\n`;
+                }
+            }
+
+            const blob = new Blob([gcode], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'farmbot_semis.gcode';
+            a.click();
+
+            log('G-Code généré et téléchargé');
+        }
+
+        function startWatering() {
+            log('Démarrage du cycle d\'arrosage...');
+            // Implementation would check humidity and water as needed
+            alert('Fonction d\'arrosage simulée');
+        }
+
+        function startWeedDetection() {
+            log('Démarrage de la détection des mauvaises herbes...');
+            if (!videoStream) {
+                alert('Veuillez d\'abord démarrer la caméra');
+                return;
+            }
+            // Vision processing will handle this
+        }
+
+        async function startVision() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 320, height: 240 } 
+                });
+                log('✓ Caméra démarrée');
+                processVideo();
+            } catch (error) {
+                log(`✗ Erreur caméra: ${error.message}`);
+                alert('Impossible d\'accéder à la caméra');
+            }
+        }
+
+        function stopVision() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+                if (animationId) cancelAnimationFrame(animationId);
+                log('Caméra arrêtée');
+            }
+        }
+
+        function processVideo() {
+            const video = document.createElement('video');
+            video.srcObject = videoStream;
+            video.play();
+
+            const videoCanvas = document.getElementById('videoCanvas');
+            const maskCanvas = document.getElementById('maskCanvas');
+            const videoCtx = videoCanvas.getContext('2d');
+            const maskCtx = maskCanvas.getContext('2d');
+
+            function draw() {
+                if (!videoStream) return;
+
+                videoCtx.drawImage(video, 0, 0, 320, 240);
+                
+                const imageData = videoCtx.getImageData(0, 0, 320, 240);
+                const data = imageData.data;
+                const maskData = maskCtx.createImageData(320, 240);
+
+                const centerX = 160;
+                const centerY = 120;
+                const exclusionRadius = 30;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    const pixelX = (i / 4) % 320;
+                    const pixelY = Math.floor((i / 4) / 320);
+                    const dist = Math.sqrt((pixelX - centerX) ** 2 + (pixelY - centerY) ** 2);
+
+                    const isGreen = g > r + 20 && g > b + 20 && g > 80;
+
+                    if (isGreen && dist > exclusionRadius) {
+                        maskData.data[i] = 0;
+                        maskData.data[i + 1] = 255;
+                        maskData.data[i + 2] = 0;
+                        maskData.data[i + 3] = 255;
+                    } else {
+                        maskData.data[i] = 0;
+                        maskData.data[i + 1] = 0;
+                        maskData.data[i + 2] = 0;
+                        maskData.data[i + 3] = 255;
+                    }
+                }
+
+                maskCtx.putImageData(maskData, 0, 0);
+
+                // Draw exclusion zone
+                maskCtx.strokeStyle = 'red';
+                maskCtx.lineWidth = 2;
+                maskCtx.beginPath();
+                maskCtx.arc(centerX, centerY, exclusionRadius, 0, 2 * Math.PI);
+                maskCtx.stroke();
+
+                animationId = requestAnimationFrame(draw);
+            }
+
+            video.onloadedmetadata = () => draw();
+        }
+
+        // Initial draw
+        drawGrid();
+    </script>
+</body>
+</html>
