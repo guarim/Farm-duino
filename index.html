@@ -15,6 +15,20 @@
         /* Scrollbar pour la console */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #374151; /* Gray-700 (Off) */
+            border: 1px solid #4b5563;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .led.on {
+            background-color: #10b981; /* Emerald-500 (On) */
+            box-shadow: 0 0 8px #10b981;
+            border-color: #059669;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-200 h-screen flex flex-col overflow-hidden">
@@ -25,7 +39,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
             </svg>
-            <h1 class="text-xl font-bold text-white">Farmbot CNC Controller auteur: M GUARIM</h1>
+            <h1 class="text-xl font-bold text-white">Farmbot CNC Controller</h1>
         </div>
         <div class="flex gap-2">
             <button id="btn-connect" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded shadow transition flex items-center gap-2">
@@ -102,7 +116,7 @@
             </div>
         </section>
 
-        <!-- Right: Actions & Vision -->
+        <!-- Right: Actions & Vision & Sensors -->
         <aside class="w-1/4 bg-slate-800 border-l border-slate-700 flex flex-col p-4 gap-4 overflow-y-auto">
             
             <!-- Actions Control -->
@@ -136,18 +150,61 @@
                 </div>
             </div>
 
+            <!-- New: Sensor Feedback Panel -->
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm">
+                <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                    Retour Capteurs
+                </h2>
+                
+                <!-- Status LEDs -->
+                <div class="flex justify-between items-center bg-slate-800 p-2 rounded mb-3">
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="text-[10px] text-slate-400 font-mono">C0 (X)</span>
+                        <div id="led-c0" class="led"></div>
+                        <span class="text-[9px] text-slate-500">9 plots</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="text-[10px] text-slate-400 font-mono">C1 (Y)</span>
+                        <div id="led-c1" class="led"></div>
+                        <span class="text-[9px] text-slate-500">4 plots</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="text-[10px] text-slate-400 font-mono">C3 (Z)</span>
+                        <div id="led-c3" class="led"></div>
+                        <span class="text-[9px] text-slate-500">3 plots</span>
+                    </div>
+                </div>
+
+                <!-- Position Info -->
+                <div class="space-y-1 text-xs font-mono">
+                    <div class="flex justify-between border-b border-slate-600 pb-1">
+                        <span class="text-slate-400">Case X détectée:</span>
+                        <span id="sensor-case-x" class="text-white font-bold">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-600 pb-1">
+                        <span class="text-slate-400">Case Y détectée:</span>
+                        <span id="sensor-case-y" class="text-white font-bold">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Niveau Z:</span>
+                        <span id="sensor-level-z" class="text-white font-bold">-</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Vision System -->
-            <div class="bg-slate-700 p-4 rounded-lg shadow-sm flex-1 flex flex-col">
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm flex-1 flex flex-col min-h-[200px]">
                 <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider">4. Vision Caméra</h2>
                 
-                <div class="relative bg-black rounded overflow-hidden aspect-video mb-2 border border-slate-600">
+                <div class="relative bg-black rounded overflow-hidden aspect-video mb-2 border border-slate-600 flex-1">
                     <video id="webcam" autoplay playsinline class="absolute inset-0 w-full h-full object-cover opacity-50"></video>
                     <canvas id="vision-canvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
                     <div class="absolute bottom-1 right-1 text-[10px] bg-black/70 px-1 text-white">Flux Direct</div>
                 </div>
 
                 <div class="text-xs text-slate-400 mb-2">
-                    <p>Détection : <span class="text-green-400">Vert (Weed)</span> vs <span class="text-emerald-600">Culture</span></p>
+                    <p>Détection : <span class="text-green-400">Vert (Weed)</span></p>
                     <p id="weed-status" class="mt-1 font-bold text-yellow-500">-</p>
                 </div>
 
@@ -171,7 +228,11 @@
             gridData: [], // Stocke l'index de la plante pour chaque case (ou -1 si vide)
             isSimulating: true, // Si true, n'envoie pas sur le port série réel mais loggue juste
             port: null,
-            writer: null
+            writer: null,
+            reader: null,
+            // Simulation State
+            currentPos: { x: 0, y: 0, z: 0 },
+            sensorState: { c0: false, c1: false, c3: false }
         };
 
         // Initialisation des couleurs
@@ -187,6 +248,14 @@
         const webcam = document.getElementById('webcam');
         const visionCanvas = document.getElementById('vision-canvas');
         const visionCtx = visionCanvas.getContext('2d');
+
+        // Sensor Elements
+        const ledC0 = document.getElementById('led-c0');
+        const ledC1 = document.getElementById('led-c1');
+        const ledC3 = document.getElementById('led-c3');
+        const dispCaseX = document.getElementById('sensor-case-x');
+        const dispCaseY = document.getElementById('sensor-case-y');
+        const dispLevelZ = document.getElementById('sensor-level-z');
 
         /**
          * GESTION DE LA GRILLE & INTERFACE
@@ -290,6 +359,24 @@
                     }
                 }
             }
+            
+            // Draw Virtual Tool Position
+            if(config.currentPos.x !== undefined) {
+                const cellW = canvas.width / config.grid.cols;
+                const cellH = canvas.height / config.grid.rows;
+                const scaleX = canvas.width / config.grid.width;
+                const scaleY = canvas.height / config.grid.height;
+                
+                const vx = config.currentPos.x * scaleX;
+                const vy = config.currentPos.y * scaleY;
+                
+                ctx.beginPath();
+                ctx.arc(vx, vy, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.stroke();
+            }
         }
 
         // Interaction Souris pour placer les plantes
@@ -319,7 +406,7 @@
         document.getElementById('btn-update-grid').addEventListener('click', updateGridConfig);
 
         /**
-         * LOGIQUE G-CODE & MOTEURS
+         * LOGIQUE G-CODE, MOTEURS & CAPTEURS
          */
         
         // Utilitaires de position
@@ -332,9 +419,72 @@
             return { x: Math.round(x), y: Math.round(y) };
         }
 
+        // SIMULATION CAPTEURS
+        // Appelé à chaque mouvement pour mettre à jour l'UI
+        function simulateSensors(x, y, z) {
+            config.currentPos = { x, y, z };
+            drawGrid(); // Redessine le point rouge de position
+
+            // Simulation Axe X: 9 plots (C0)
+            // On imagine des plots répartis tous les (width/9)
+            const xPlotDist = config.grid.width / 9;
+            const isNearXPlot = (x % xPlotDist) < 10; // Déclenchement si proche d'un multiple
+            toggleLed(ledC0, isNearXPlot);
+            
+            // Calcul Case X (Basé sur la grille configurée, pas forcément les plots)
+            // L'énoncé demande: "retour information indique le numéro de la case"
+            const cellW = config.grid.width / config.grid.cols;
+            const currentCol = Math.min(config.grid.cols - 1, Math.floor(x / cellW));
+            dispCaseX.innerText = `Col ${currentCol + 1}`; // 1-based
+
+            // Simulation Axe Y: 4 plots (C1)
+            const yPlotDist = config.grid.height / 4;
+            const isNearYPlot = (y % yPlotDist) < 10;
+            toggleLed(ledC1, isNearYPlot);
+
+            const cellH = config.grid.height / config.grid.rows;
+            const currentRow = Math.min(config.grid.rows - 1, Math.floor(y / cellH));
+            dispCaseY.innerText = `Rang ${currentRow + 1}`; // 1-based
+
+            // Simulation Axe Z: 3 plots (C3)
+            // Disons: Haut (0), Milieu (-200), Bas (-400)
+            const isNearZPlot = (Math.abs(z) < 5) || (Math.abs(z + 200) < 5) || (Math.abs(z + 400) < 5);
+            toggleLed(ledC3, isNearZPlot);
+            
+            let zLevelText = "Intermédiaire";
+            if (z > -10) zLevelText = "Haut (Sécu)";
+            else if (z < -300) zLevelText = "Bas (Terre)";
+            else if (z < -100) zLevelText = "Milieu";
+            dispLevelZ.innerText = `${zLevelText} (${z}mm)`;
+        }
+
+        function toggleLed(el, on) {
+            if (on) el.classList.add('on');
+            else el.classList.remove('on');
+        }
+
         // Envoi Série
         async function sendGCode(cmd) {
             log(`> ENVOI: ${cmd}`);
+            
+            // Parsing simple pour la simulation
+            if (cmd.startsWith("G0") || cmd.startsWith("G1")) {
+                const xMatch = cmd.match(/X([-\d.]+)/);
+                const yMatch = cmd.match(/Y([-\d.]+)/);
+                const zMatch = cmd.match(/Z([-\d.]+)/);
+
+                // Update current pos if present
+                if (xMatch) config.currentPos.x = parseFloat(xMatch[1]);
+                if (yMatch) config.currentPos.y = parseFloat(yMatch[1]);
+                if (zMatch) config.currentPos.z = parseFloat(zMatch[1]);
+
+                simulateSensors(config.currentPos.x, config.currentPos.y, config.currentPos.z);
+            }
+            if (cmd.startsWith("G28")) {
+                config.currentPos = { x: 0, y: 0, z: 0 };
+                simulateSensors(0, 0, 0);
+            }
+
             if (config.port && config.writer) {
                 try {
                     const data = new TextEncoder().encode(cmd + '\n');
@@ -349,19 +499,19 @@
         }
 
         // Fonctions Outils (Tourelle 80°)
-        // 0° = Semoir, 80° = Arrosage, 160° = Désherbeur (supposition logique)
         async function setTool(toolName) {
             let angle = 0;
             if (toolName === 'semoir') angle = 0;
             else if (toolName === 'arrosage') angle = 80;
             else if (toolName === 'desherbage') angle = 160;
 
-            await sendGCode(`G0 E${angle}`); // On utilise l'axe E (extrudeur) ou A pour la tourelle
+            await sendGCode(`G0 E${angle}`);
             log(`[Tourelle] Rotation vers ${toolName} (${angle}°)`);
         }
 
         /**
-         * CYCLE 1: SEMIS
+         * CYCLES (Semis, Arrosage, Désherbage)
+         * (Codes précédents conservés, ils mettent maintenant à jour les capteurs via sendGCode)
          */
         async function runSowingCycle() {
             log("=== DÉBUT CYCLE SEMIS ===");
@@ -388,46 +538,30 @@
                 const pName = config.plants[item.plantIdx].name;
                 log(`Traitement: ${pName} en case (${item.col}, ${item.row})`);
 
-                // 1. Chercher la graine
-                // Formule prompt: origine graines (0, 100, -400) puis +100 en Y par plante
-                // Supposons que plantIdx 0 est au slot 1, etc.
                 const seedX = 0;
                 const seedY = 100 + (item.plantIdx * 100);
-                const seedZ = -400; // Position basse prise graine
+                const seedZ = -400;
 
-                // Approche haut
                 await sendGCode(`G0 X${seedX} Y${seedY} Z0`); 
-                // Descente
                 await sendGCode(`G1 Z${seedZ} F1000`);
-                // Pompe vide ON
                 await sendGCode("M106 S255"); // Fan/Pump ON
                 log("[Pompe] Vide activé (Graine saisie)");
                 await new Promise(r => setTimeout(r, 500));
-                // Remonte
                 await sendGCode("G0 Z0");
 
-                // 2. Aller à la case
                 const pos = getPhysicalCoords(item.col, item.row);
                 await sendGCode(`G0 X${pos.x} Y${pos.y}`);
                 
-                // 3. Planter
-                await sendGCode("G1 Z-350 F1000"); // Descente dans la terre (supposé Z-350)
-                // Pompe vide OFF
+                await sendGCode("G1 Z-350 F1000");
                 await sendGCode("M107"); // Fan/Pump OFF
                 log("[Pompe] Vide désactivé (Graine plantée)");
                 await new Promise(r => setTimeout(r, 500));
-                // Remonter
                 await sendGCode("G0 Z0");
             }
-
-            // Retour Home
             await sendGCode("G28 X0 Y0");
             log("=== FIN CYCLE SEMIS ===");
         }
 
-        /**
-         * CYCLE 2: ARROSAGE (Humidité)
-         */
         async function runWateringCycle() {
             log("=== CYCLE CONTRÔLE HUMIDITÉ (2H) ===");
             await sendGCode("G90");
@@ -442,39 +576,30 @@
                 const col = item.i % config.grid.cols;
                 const pos = getPhysicalCoords(col, row);
 
-                await sendGCode(`G0 X${pos.x} Y${pos.y} Z-100`); // Position mesure
-                
-                // Simulation capteur
+                await sendGCode(`G0 X${pos.x} Y${pos.y} Z-100`); 
                 log(`... Mesure humidité en X${pos.x} Y${pos.y}`);
-                await new Promise(r => setTimeout(r, 500)); // Temps lecture
+                await new Promise(r => setTimeout(r, 500)); 
                 
-                // Génération aléatoire humidité pour démo
                 const humidity = Math.floor(Math.random() * 60); 
                 log(`[Capteur] Humidité: ${humidity}%`);
 
                 if (humidity < 30) {
                     log(">>> ALERTE SEC ! Arrosage 20s...");
-                    await sendGCode("M3"); // Pompe eau ON (Spindle ON souvent utilisé pour relais)
-                    // Simulation attente 2s pour la démo au lieu de 20s
+                    await sendGCode("M3"); 
                     log("(Attente 20s simulée accélérée...)");
                     await new Promise(r => setTimeout(r, 2000)); 
-                    await sendGCode("M5"); // Pompe OFF
+                    await sendGCode("M5");
                 } else {
                     log("Humidité OK.");
                 }
-                
-                await sendGCode("G0 Z0"); // Haut
+                await sendGCode("G0 Z0");
             }
             await sendGCode("G28 X0 Y0");
             log("=== FIN CYCLE ARROSAGE ===");
         }
 
-        /**
-         * CYCLE 3: DÉSHERBAGE (Vision)
-         */
         async function runWeedingCycle() {
             log("=== CYCLE DÉSHERBAGE HEBDOMADAIRE ===");
-            // Vérifier si caméra active
             if (webcam.paused || webcam.ended) {
                 log("ERREUR: Veuillez activer la caméra d'abord.");
                 return;
@@ -491,21 +616,16 @@
                 const col = item.i % config.grid.cols;
                 const pos = getPhysicalCoords(col, row);
 
-                // Déplacer caméra au dessus
                 log(`Scan visuel en X${pos.x} Y${pos.y}`);
                 await sendGCode(`G0 X${pos.x} Y${pos.y} Z-50`); 
-                
-                // Pause pour stabilisation image
                 await new Promise(r => setTimeout(r, 1000));
 
-                // Analyse Image
                 const isWeed = analyzeImageForWeeds();
                 
                 if (isWeed) {
                     log(">>> ALERTE: Mauvaise herbe détectée !");
-                    // Action mécanique (ex: descendre outil rotatif)
-                    await sendGCode("G1 Z-350 F1000"); // Descente outil dans terre
-                    await new Promise(r => setTimeout(r, 1000)); // Temps action
+                    await sendGCode("G1 Z-350 F1000"); 
+                    await new Promise(r => setTimeout(r, 1000));
                     await sendGCode("G0 Z0");
                     log("Désherbage effectué.");
                 } else {
@@ -517,7 +637,6 @@
         }
 
         function analyzeImageForWeeds() {
-            // Capture du frame actuel sur le canvas caché
             visionCanvas.width = webcam.videoWidth;
             visionCanvas.height = webcam.videoHeight;
             visionCtx.drawImage(webcam, 0, 0);
@@ -527,28 +646,19 @@
             let greenPixelCount = 0;
             let totalPixelCount = data.length / 4;
 
-            // Algorithme simple: Si G > R+20 et G > B+20
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 if (g > r + 20 && g > b + 20) {
                     greenPixelCount++;
-                    // Marquer en vert fluo sur le canvas de vision pour debug
                     data[i] = 0; data[i+1] = 255; data[i+2] = 0; 
                 }
             }
             
-            // Remettre l'image traitée pour visualisation utilisateur
             visionCtx.putImageData(frame, 0, 0);
 
             const greenPercentage = (greenPixelCount / totalPixelCount) * 100;
-            const threshold = 35; // Si la plante cultivée couvre > 35%, on désactive la détection (supposition : tout est bon)
-            // L'algo du prompt est un peu complexe: "détection couleur vert en dehors de la zone supposée... désactivé si plante couvre 35%"
-            
-            // Simplification POC: 
-            // Si beaucoup de vert (>35%), on suppose que c'est la plante cultivée saine -> Pas de désherbage (Risque de tuer la plante).
-            // Si un peu de vert (>5% et <35%), on suppose mauvaise herbe (la plante est petite).
             
             document.getElementById('weed-status').innerText = `Vert: ${greenPercentage.toFixed(1)}%`;
 
@@ -563,8 +673,33 @@
         }
 
         /**
-         * GESTION WEB SERIAL & CAMERA
+         * GESTION WEB SERIAL, CAMERA & LECTURE
          */
+        
+        // Boucle de lecture série (Pour recevoir l'info des vrais capteurs)
+        async function readLoop() {
+            while (config.port && config.port.readable) {
+                const reader = config.port.readable.getReader();
+                config.reader = reader;
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        const text = new TextDecoder().decode(value);
+                        // Logique simplifiée: si l'Arduino envoie "C0:1", on allume la LED
+                        if(text.includes("C0:1")) toggleLed(ledC0, true);
+                        if(text.includes("C0:0")) toggleLed(ledC0, false);
+                        // etc.
+                        // Cette boucle permet d'écouter les retours machine réels
+                    }
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    reader.releaseLock();
+                }
+            }
+        }
+
         document.getElementById('btn-connect').addEventListener('click', async () => {
             if ("serial" in navigator) {
                 try {
@@ -577,6 +712,9 @@
                     statusIndicator.innerText = "Connecté (USB)";
                     statusIndicator.className = "px-3 py-2 rounded bg-emerald-600 font-mono text-xs flex items-center";
                     log("Port Série ouvert avec succès.");
+
+                    // Lancer l'écoute
+                    readLoop();
                 } catch (err) {
                     log("Erreur connexion: " + err);
                     alert("Impossible de connecter le port série. Passage en mode simulation.");
@@ -606,9 +744,6 @@
             consoleOut.appendChild(div);
             consoleOut.scrollTop = consoleOut.scrollHeight;
         }
-
-        // Setup automatique des périodicités (Désactivé par défaut pour pas spammer la console, activé via boutons)
-        // setInterval(runWateringCycle, 2 * 60 * 60 * 1000); // 2 heures
 
         // Listeners boutons
         document.getElementById('btn-start-sowing').onclick = runSowingCycle;
