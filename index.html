@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmBot CNC Interface - Semis & Détection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        h1 { color: #2e8b57; }
+        #configuration, #semis-data, #camera-view { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        #grid-canvas { border: 2px solid #333; cursor: pointer; }
+        .plant-selector button { margin: 5px; padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .plant-selector button.selected { background-color: #2e8b57; border: 2px solid #000; }
+        #start-button { padding: 15px 30px; background-color: #007bff; color: white; font-size: 1.2em; border: none; border-radius: 5px; cursor: pointer; }
+        #start-button:hover { background-color: #0056b3; }
+        .camera-container { display: flex; gap: 20px; }
+        .video-feed, .mask-display { border: 1px solid #444; }
+        .log-output { background: #eee; padding: 10px; height: 150px; overflow-y: scroll; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 FarmBot CNC - Console de Contrôle</h1>
+
+        <div id="configuration">
+            <h2>1. Configuration de la Zone</h2>
+            <label>Longueur (mm) : <input type="number" id="L" value="1000" min="100"></label>
+            <label>Largeur (mm) : <input type="number" id="W" value="1000" min="100"></label><br><br>
+            <label>Cases Axe X : <input type="number" id="Nx" value="4" min="1"></label>
+            <label>Cases Axe Y : <input type="number" id="Ny" value="4" min="1"></label>
+            <button onclick="generateGrid()">Générer Grille</button>
+            <p>Surface par case (calculé) : <span id="case-size">N/A</span></p>
+        </div>
+
+        <div id="semis-data">
+            <h2>2. Placement des Plantes</h2>
+            <div class="plant-selector">
+                <p>Nom des 6 plantes (Modifier puis cliquer sur une plante pour la sélectionner) :</p>
+                <input type="text" id="plant1" value="Tomate"> <button onclick="selectPlant(1)">Tomate</button>
+                <input type="text" id="plant2" value="Salade"> <button onclick="selectPlant(2)">Salade</button>
+                <input type="text" id="plant3" value="Carotte"> <button onclick="selectPlant(3)">Carotte</button>
+                <input type="text" id="plant4" value="Basilic"> <button onclick="selectPlant(4)">Basilic</button>
+                <input type="text" id="plant5" value="Radis"> <button onclick="selectPlant(5)">Radis</button>
+                <input type="text" id="plant6" value="Poivron"> <button onclick="selectPlant(6)">Poivron</button>
+            </div>
+            <p>Plante sélectionnée : <strong id="current-plant-name">Aucune</strong></p>
+            <canvas id="grid-canvas" width="400" height="400"></canvas>
+        </div>
+        
+        <div id="camera-view">
+            <h2>3. Contrôle CNC & Détection</h2>
+            <button id="start-button" onclick="startProgram()">▶️ Démarrer le Programme de Semis</button>
+            
+            <h3>Webcam & Détection de Mauvaises Herbes</h3>
+            <div class="camera-container">
+                <div>
+                    <h4>Flux Vidéo (Simulation)</h4>
+                    <video id="webcam-feed" class="video-feed" width="320" height="240" autoplay></video>
+                </div>
+                <div>
+                    <h4>Masque de Détection (Canvas 320x240)</h4>
+                    <canvas id="detection-mask" class="mask-display" width="320" height="240"></canvas>
+                </div>
+            </div>
+
+            <p>Journal G-Code / Sortie Arduino :</p>
+            <pre class="log-output" id="log"></pre>
+        </div>
+    </div>
+
+    <script>
+        // --- Variables Globales ---
+        let L = 1000, W = 1000; // Longueur et Largeur (mm)
+        let Nx = 4, Ny = 4;     // Nombre de cases
+        let gridMap = {};       // Stocke les associations { "i_j": plantIndex }
+        let cellL = 0, cellW = 0; // Taille de la case
+        let selectedPlantIndex = 0;
+        const canvas = document.getElementById('grid-canvas');
+        const ctx = canvas.getContext('2d');
+        const log = document.getElementById('log');
+        
+        const CAM_WIDTH = 320;
+        const CAM_HEIGHT = 240;
+        const maskCanvas = document.getElementById('detection-mask');
+        const maskCtx = maskCanvas.getContext('2d');
+        const webcamFeed = document.getElementById('webcam-feed');
+
+        // --- Fonctions de Configuration de la Grille ---
+        function generateGrid() {
+            L = parseInt(document.getElementById('L').value);
+            W = parseInt(document.getElementById('W').value);
+            Nx = parseInt(document.getElementById('Nx').value);
+            Ny = parseInt(document.getElementById('Ny').value);
+
+            if (L <= 0 || W <= 0 || Nx <= 0 || Ny <= 0) {
+                alert("Veuillez entrer des valeurs valides.");
+                return;
+            }
+
+            cellL = L / Nx;
+            cellW = W / Ny;
+            document.getElementById('case-size').textContent = `${cellL.toFixed(2)} mm x ${cellW.toFixed(2)} mm`;
+
+            gridMap = {}; // Réinitialiser la carte des plantes
+            drawGrid();
+            logMessage(`Grille générée: ${Nx}x${Ny} sur ${L}x${W} mm.`);
+        }
+
+        function drawGrid() {
+            const cw = canvas.width / Nx;
+            const ch = canvas.height / Ny;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dessin des lignes de la grille
+            ctx.strokeStyle = '#333';
+            for (let i = 0; i <= Nx; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cw, 0);
+                ctx.lineTo(i * cw, canvas.height);
+                ctx.stroke();
+            }
+            for (let j = 0; j <= Ny; j++) {
+                ctx.beginPath();
+                ctx.moveTo(0, j * ch);
+                ctx.lineTo(canvas.width, j * ch);
+                ctx.stroke();
+            }
+
+            // Affichage des plantes placées
+            for (const key in gridMap) {
+                const [i, j] = key.split('_').map(Number);
+                const plantIndex = gridMap[key];
+                const plantName = document.getElementById(`plant${plantIndex}`).value;
+
+                const centerX = i * cw + cw / 2;
+                const centerY = j * ch + ch / 2;
+
+                ctx.fillStyle = getColorForPlant(plantIndex);
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, Math.min(cw, ch) / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.font = '10px Arial';
+                ctx.fillText(plantName.substring(0, 5), centerX, centerY + 20);
+            }
+        }
+
+        function getColorForPlant(index) {
+            const colors = ['#ff6347', '#3cb371', '#daa520', '#6a5acd', '#ff8c00', '#20b2aa'];
+            return colors[(index - 1) % colors.length];
+        }
+
+        function selectPlant(index) {
+            selectedPlantIndex = index;
+            const plantName = document.getElementById(`plant${index}`).value;
+            document.getElementById('current-plant-name').textContent = plantName;
+
+            // Mettre à jour les boutons pour indiquer la sélection
+            document.querySelectorAll('.plant-selector button').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        canvas.addEventListener('click', (event) => {
+            if (selectedPlantIndex === 0) {
+                alert("Veuillez d'abord sélectionner une plante.");
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const cw = canvas.width / Nx;
+            const ch = canvas.height / Ny;
+
+            // Calculer l'indice de la case (i, j)
+            const i = Math.floor(x / cw); // Axe X (0 à Nx-1)
+            const j = Math.floor(y / ch); // Axe Y (0 à Ny-1)
+
+            const key = `${i}_${j}`;
+            
+            // Placer ou retirer la plante
+            if (gridMap[key] === selectedPlantIndex) {
+                delete gridMap[key]; // Supprimer si on clique sur la même plante
+                logMessage(`Plante retirée de la case (${i}, ${j}).`);
+            } else {
+                gridMap[key] = selectedPlantIndex;
+                const plantName = document.getElementById(`plant${selectedPlantIndex}`).value;
+                logMessage(`Plante ${plantName} (${selectedPlantIndex}) placée en case (${i}, ${j}).`);
+            }
+            
+            drawGrid();
+        });
+
+
+        // --- Fonctions de Trajectoire (Simulation G-Code) ---
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function calculateCenter(i, j) {
+            const X_center = i * cellL + cellL / 2;
+            const Y_center = j * cellW + cellW / 2;
+            return { X: X_center.toFixed(2), Y: Y_center.toFixed(2) };
+        }
+
+        function startProgram() {
+            logMessage("--- Démarrage du Programme de Semis ---");
+            document.getElementById('start-button').disabled = true;
+
+            const cellsToSeed = Object.keys(gridMap).map(key => {
+                const [i, j] = key.split('_').map(Number);
+                return { i, j, plantIndex: gridMap[key] };
+            });
+
+            let delay = 0;
+            const stepDelay = 500; // Délai entre chaque étape G-Code (ms)
+
+            cellsToSeed.forEach(cell => {
+                const { i, j, plantIndex } = cell;
+                const { X, Y } = calculateCenter(i, j);
+                const plantName = document.getElementById(`plant${plantIndex}`).value;
+                const toolY = 100 * plantIndex; // Position de l'outil de graine
+                
+                // Séquence de Semis
+                setTimeout(() => logMessage(`Séquence pour ${plantName} en case (${i}, ${j}):`), delay);
+                delay += stepDelay;
+
+                // 1. Montée Z
+                setTimeout(() => logMessage(`  > G0 Z0`), delay); delay += stepDelay;
+                
+                // 2. Déplacement vers l'outil
+                setTimeout(() => logMessage(`  > G0 X0 Y${toolY} Z-400 (Choisir graine ${plantIndex})`), delay); delay += stepDelay;
+                
+                // 3. Prise de graine
+                setTimeout(() => logMessage(`  > G1 Z(Z_prise) (Prise de graine) / M3 P1 (Pompe ON)`), delay); delay += stepDelay;
+                
+                // 4. Déplacement vers la case
+                setTimeout(() => logMessage(`  > G0 Z0`), delay); delay += stepDelay;
+                setTimeout(() => logMessage(`  > G0 X${X} Y${Y} Z0 (Déplacement vers le centre) `), delay); delay += stepDelay;
+                
+                // 5. Plantation
+                setTimeout(() => logMessage(`  > G1 Z(Z_profondeur) F100 (Plantation) / M5 (Pompe OFF)`), delay); delay += stepDelay;
+                
+                // 6. Fin de séquence
+                setTimeout(() => logMessage(`  > G0 Z0 (Sécurité)`), delay); delay += stepDelay;
+            });
+
+            setTimeout(() => {
+                logMessage("--- Semis terminé. Démarrage du Contrôle Humidité (Simulation) ---");
+                document.getElementById('start-button').disabled = false;
+            }, delay);
+        }
+
+        // --- Fonctions de la Webcam et du Masque ---
+
+        function initWebcam() {
+            // Tente d'accéder à la webcam de l'utilisateur
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { width: CAM_WIDTH, height: CAM_HEIGHT } })
+                    .then(stream => {
+                        webcamFeed.srcObject = stream;
+                        webcamFeed.onloadedmetadata = () => webcamFeed.play();
+                        // Démarrer la boucle de détection une fois que la vidéo est chargée
+                        webcamFeed.addEventListener('play', () => {
+                            setInterval(updateDetectionMask, 100); // 10 FPS
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Erreur d'accès à la webcam:", error);
+                        logMessage("ERREUR: Impossible d'accéder à la webcam. Simulation de l'image.");
+                        simulateDetection(); // Fallback si pas de webcam
+                    });
+            } else {
+                 logMessage("ERREUR: Votre navigateur ne supporte pas l'API MediaDevices. Simulation de l'image.");
+                 simulateDetection();
+            }
+        }
+        
+        function updateDetectionMask() {
+            // 1. Dessiner l'image courante de la webcam sur le masque
+            maskCtx.drawImage(webcamFeed, 0, 0, CAM_WIDTH, CAM_HEIGHT);
+            
+            // 2. Obtenir les données de l'image (pour la détection)
+            let imageData = maskCtx.getImageData(0, 0, CAM_WIDTH, CAM_HEIGHT);
+            let data = imageData.data;
+            
+            // 3. SIMULATION de la détection de "mauvaise herbe" (vert) et application du masque
+            // On simule ici : Vert en dehors d'une zone centrale de 4cm de rayon (~40 pixels au centre)
+            const centerX = CAM_WIDTH / 2;
+            const centerY = CAM_HEIGHT / 2;
+            const exclusionRadius = 40; // Simule le rayon de 4cm (40 pixels pour 320x240)
+            
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+                // let a = data[i + 3];
+                
+                // Calculer la position x, y du pixel
+                const pixelIndex = i / 4;
+                const x = pixelIndex % CAM_WIDTH;
+                const y = Math.floor(pixelIndex / CAM_WIDTH);
+                
+                // Calcul de la distance par rapport au centre (pour la zone d'exclusion)
+                const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+
+                // Condition de détection: Zone verte ET en dehors du rayon d'exclusion
+                // Critère de vert simple : G > R*1.2 ET G > B*1.2
+                if (g > r * 1.2 && g > b * 1.2 && distance > exclusionRadius) {
+                    // C'est une mauvaise herbe potentielle (Masque rouge)
+                    data[i] = 255;  // R
+                    data[i + 1] = 0;  // G
+                    data[i + 2] = 0;  // B
+                    data[i + 3] = 180; // Opacité (semi-transparent)
+                } else {
+                    // Zone non pertinente ou à l'intérieur de la plante cultivée (Masque transparent)
+                    data[i + 3] = 0; // Alpha à 0 pour la transparence
+                }
+            }
+            
+            // 4. Dessiner la zone d'exclusion (cercle blanc)
+            maskCtx.putImageData(imageData, 0, 0);
+
+            maskCtx.beginPath();
+            maskCtx.strokeStyle = 'white';
+            maskCtx.lineWidth = 2;
+            maskCtx.arc(centerX, centerY, exclusionRadius, 0, 2 * Math.PI);
+            maskCtx.stroke();
+            maskCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            maskCtx.fill();
+            
+            maskCtx.fillStyle = 'white';
+            maskCtx.font = '10px Arial';
+            maskCtx.textAlign = 'center';
+            maskCtx.fillText("Zone d'Exclusion (Plante Cultivée)", centerX, centerY + exclusionRadius + 15);
+        }
+
+        function simulateDetection() {
+             // Simuler le flux vidéo avec des carrés de couleur (vert, brun, rouge)
+            function drawSimulatedImage() {
+                maskCtx.clearRect(0, 0, CAM_WIDTH, CAM_HEIGHT);
+                
+                // Fond (terre)
+                maskCtx.fillStyle = '#8b4513'; // Brun
+                maskCtx.fillRect(0, 0, CAM_WIDTH, CAM_HEIGHT);
+                
+                // Simuler la plante cultivée (au centre, dans la zone d'exclusion)
+                maskCtx.fillStyle = '#3cb371'; // Vert foncé
+                maskCtx.beginPath();
+                maskCtx.arc(CAM_WIDTH / 2, CAM_HEIGHT / 2, 30, 0, Math.PI * 2);
+                maskCtx.fill();
+
+                // Simuler les mauvaises herbes (en dehors de la zone)
+                maskCtx.fillStyle = '#006400'; // Vert très foncé
+                maskCtx.fillRect(20, 20, 15, 15);
+                maskCtx.fillRect(250, 150, 20, 20);
+
+                // Appliquer la logique de masque (rouge sur le vert en dehors du centre)
+                updateDetectionMask();
+            }
+            setInterval(drawSimulatedImage, 1000); // Mise à jour lente de la simulation
+        }
+        
+
+        // --- Initialisation au chargement de la page ---
+        window.onload = () => {
+            generateGrid(); // Initialiser la grille 4x4
+            initWebcam();   // Tenter d'activer la webcam
+        };
+    </script>
+</body>
+</html>
