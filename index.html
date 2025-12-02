@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de Contrôle Farmbot CNC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Styles spécifiques pour le canvas et l'interface */
+        canvas { touch-action: none; }
+        .console-log {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+        }
+        /* Scrollbar pour la console */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 p-4 shadow-lg flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            <h1 class="text-xl font-bold text-white">Farmbot CNC Controller</h1>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-connect" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded shadow transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                Connexion Arduino (USB)
+            </button>
+            <div id="status-indicator" class="px-3 py-2 rounded bg-red-600 font-mono text-xs flex items-center">Déconnecté</div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-row overflow-hidden">
+        
+        <!-- Sidebar: Configuration & Plants -->
+        <aside class="w-1/4 bg-slate-800 border-r border-slate-700 flex flex-col overflow-y-auto p-4 gap-6">
+            
+            <!-- Section 1: Dimensions -->
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm">
+                <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider">1. Configuration Zone</h2>
+                <div class="grid grid-cols-2 gap-3 mb-2">
+                    <div>
+                        <label class="block text-xs text-slate-400">Longueur (mm)</label>
+                        <input type="number" id="conf-width" value="1000" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm focus:border-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Largeur (mm)</label>
+                        <input type="number" id="conf-height" value="1000" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm focus:border-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Cases X</label>
+                        <input type="number" id="grid-x" value="5" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm focus:border-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Cases Y</label>
+                        <input type="number" id="grid-y" value="5" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm focus:border-emerald-500 outline-none">
+                    </div>
+                </div>
+                <button id="btn-update-grid" class="w-full bg-slate-600 hover:bg-slate-500 text-xs py-2 rounded mt-2 transition">Mettre à jour & Calculer Surface</button>
+                <div id="area-result" class="mt-2 text-center text-xs text-yellow-400 font-mono hidden">Surface/Case: <span>0</span> mm²</div>
+            </div>
+
+            <!-- Section 2: Plantes -->
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm flex-1">
+                <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider">2. Sélection Plantes</h2>
+                <div class="space-y-2" id="plant-list">
+                    <!-- Généré par JS: 6 Inputs -->
+                </div>
+                <div class="mt-4 p-2 bg-slate-800 rounded text-xs text-slate-400">
+                    <p>Sélectionnez une plante ci-dessus, puis cliquez sur la grille pour la placer.</p>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Center: Visualization Grid -->
+        <section class="flex-1 bg-slate-900 relative flex flex-col">
+            <div class="absolute top-2 left-2 bg-black/50 p-2 rounded z-10 text-xs font-mono">
+                Vue de dessus (Damier)
+            </div>
+            
+            <div class="flex-1 flex justify-center items-center overflow-auto p-8" id="canvas-container">
+                <canvas id="farm-canvas" class="bg-slate-800 shadow-2xl border border-slate-600 cursor-crosshair"></canvas>
+            </div>
+
+            <!-- Console Log Panel -->
+            <div class="h-48 bg-black border-t border-slate-700 flex flex-col">
+                <div class="bg-slate-800 px-2 py-1 text-xs text-slate-400 flex justify-between">
+                    <span>Console Système & G-Code</span>
+                    <button onclick="document.getElementById('console-output').innerHTML=''" class="hover:text-white">Effacer</button>
+                </div>
+                <div id="console-output" class="flex-1 p-2 overflow-y-auto console-log text-green-500 space-y-1">
+                    <div class="text-slate-500">>> Système prêt. En attente de configuration...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: Actions & Vision -->
+        <aside class="w-1/4 bg-slate-800 border-l border-slate-700 flex flex-col p-4 gap-4 overflow-y-auto">
+            
+            <!-- Actions Control -->
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm">
+                <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider">3. Opérations</h2>
+                
+                <div class="space-y-3">
+                    <button id="btn-start-sowing" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded shadow font-bold flex items-center justify-center gap-2">
+                        <span>🌱</span> Démarrer Semis
+                    </button>
+                    
+                    <div class="h-px bg-slate-600 my-2"></div>
+
+                    <div class="flex items-center justify-between text-xs text-slate-300 mb-1">
+                        <span>Cycle Arrosage</span>
+                        <span class="text-slate-500">Toutes les 2h</span>
+                    </div>
+                    <button id="btn-check-water" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm flex items-center justify-center gap-2">
+                        <span>💧</span> Test Humidité & Arrosage
+                    </button>
+
+                    <div class="h-px bg-slate-600 my-2"></div>
+
+                    <div class="flex items-center justify-between text-xs text-slate-300 mb-1">
+                        <span>Cycle Désherbage</span>
+                        <span class="text-slate-500">Hebdomadaire</span>
+                    </div>
+                    <button id="btn-check-weed" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded text-sm flex items-center justify-center gap-2">
+                        <span>🔍</span> Scan Mauvaises Herbes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vision System -->
+            <div class="bg-slate-700 p-4 rounded-lg shadow-sm flex-1 flex flex-col">
+                <h2 class="text-emerald-400 font-bold mb-3 uppercase text-sm tracking-wider">4. Vision Caméra</h2>
+                
+                <div class="relative bg-black rounded overflow-hidden aspect-video mb-2 border border-slate-600">
+                    <video id="webcam" autoplay playsinline class="absolute inset-0 w-full h-full object-cover opacity-50"></video>
+                    <canvas id="vision-canvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
+                    <div class="absolute bottom-1 right-1 text-[10px] bg-black/70 px-1 text-white">Flux Direct</div>
+                </div>
+
+                <div class="text-xs text-slate-400 mb-2">
+                    <p>Détection : <span class="text-green-400">Vert (Weed)</span> vs <span class="text-emerald-600">Culture</span></p>
+                    <p id="weed-status" class="mt-1 font-bold text-yellow-500">-</p>
+                </div>
+
+                <button id="btn-camera-on" class="mt-auto w-full bg-slate-600 hover:bg-slate-500 text-xs py-2 rounded transition">
+                    Activer Caméra
+                </button>
+            </div>
+        </aside>
+
+    </main>
+
+    <script>
+        /**
+         * CONFIGURATION ET ETAT GLOBAL
+         */
+        const config = {
+            colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'], // Couleurs pour les 6 plantes
+            plants: Array(6).fill("").map((_, i) => ({ name: `Plante ${i+1}`, color: '' })),
+            grid: { rows: 5, cols: 5, width: 1000, height: 1000 },
+            selectedPlantIndex: 0,
+            gridData: [], // Stocke l'index de la plante pour chaque case (ou -1 si vide)
+            isSimulating: true, // Si true, n'envoie pas sur le port série réel mais loggue juste
+            port: null,
+            writer: null
+        };
+
+        // Initialisation des couleurs
+        config.plants.forEach((p, i) => p.color = config.colors[i]);
+
+        /**
+         * ELEMENTS DOM
+         */
+        const canvas = document.getElementById('farm-canvas');
+        const ctx = canvas.getContext('2d');
+        const consoleOut = document.getElementById('console-output');
+        const statusIndicator = document.getElementById('status-indicator');
+        const webcam = document.getElementById('webcam');
+        const visionCanvas = document.getElementById('vision-canvas');
+        const visionCtx = visionCanvas.getContext('2d');
+
+        /**
+         * GESTION DE LA GRILLE & INTERFACE
+         */
+        function initUI() {
+            // Générer les inputs pour les plantes
+            const list = document.getElementById('plant-list');
+            list.innerHTML = '';
+            config.plants.forEach((plant, index) => {
+                const div = document.createElement('div');
+                div.className = `flex items-center gap-2 p-2 rounded cursor-pointer border border-transparent hover:bg-slate-800 transition ${index === 0 ? 'bg-slate-800 border-slate-500' : ''}`;
+                div.onclick = () => selectPlant(index, div);
+                
+                div.innerHTML = `
+                    <div class="w-4 h-4 rounded-full" style="background-color: ${plant.color}"></div>
+                    <input type="text" value="${plant.name}" class="bg-transparent border-b border-slate-600 text-sm w-full focus:outline-none text-white focus:border-emerald-500" onchange="updatePlantName(${index}, this.value)">
+                `;
+                list.appendChild(div);
+            });
+
+            // Initialiser la grille de données
+            resetGridData();
+            drawGrid();
+        }
+
+        function resetGridData() {
+            config.gridData = Array(config.grid.rows * config.grid.cols).fill(-1);
+        }
+
+        function selectPlant(index, element) {
+            config.selectedPlantIndex = index;
+            // Update UI highlight
+            const list = document.getElementById('plant-list');
+            Array.from(list.children).forEach(c => c.classList.remove('bg-slate-800', 'border-slate-500'));
+            element.classList.add('bg-slate-800', 'border-slate-500');
+        }
+
+        function updatePlantName(index, name) {
+            config.plants[index].name = name;
+        }
+
+        function updateGridConfig() {
+            config.grid.width = parseInt(document.getElementById('conf-width').value);
+            config.grid.height = parseInt(document.getElementById('conf-height').value);
+            config.grid.cols = parseInt(document.getElementById('grid-x').value);
+            config.grid.rows = parseInt(document.getElementById('grid-y').value);
+            
+            // Calcul Surface
+            const cellW = config.grid.width / config.grid.cols;
+            const cellH = config.grid.height / config.grid.rows;
+            const area = Math.round(cellW * cellH);
+            
+            const areaDiv = document.getElementById('area-result');
+            areaDiv.classList.remove('hidden');
+            areaDiv.querySelector('span').innerText = area.toLocaleString();
+
+            resetGridData();
+            drawGrid();
+            log(`Configuration mise à jour: ${config.grid.width}x${config.grid.height}mm, Grille ${config.grid.cols}x${config.grid.rows}. Surface case: ${area}mm²`);
+        }
+
+        // Dessin du Canvas
+        function drawGrid() {
+            // Ajuster la taille du canvas
+            const container = document.getElementById('canvas-container');
+            const availSize = Math.min(container.clientWidth, container.clientHeight) - 40;
+            
+            canvas.width = availSize;
+            canvas.height = availSize; // On garde un ratio carré visuellement pour le damier, même si physique rectangulaire
+
+            const cellW = canvas.width / config.grid.cols;
+            const cellH = canvas.height / config.grid.rows;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < config.grid.rows; y++) {
+                for (let x = 0; x < config.grid.cols; x++) {
+                    const index = y * config.grid.cols + x;
+                    const plantIdx = config.gridData[index];
+
+                    // Fond de la case
+                    ctx.fillStyle = (x + y) % 2 === 0 ? '#1e293b' : '#334155'; // Damier
+                    if (plantIdx !== -1) {
+                        ctx.fillStyle = config.plants[plantIdx].color + '80'; // Couleur plante avec transparence
+                    }
+                    ctx.fillRect(x * cellW, y * cellH, cellW, cellH);
+
+                    // Contour
+                    ctx.strokeStyle = '#475569';
+                    ctx.strokeRect(x * cellW, y * cellH, cellW, cellH);
+
+                    // Texte si plante
+                    if (plantIdx !== -1) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '10px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        // Tronquer le nom
+                        const name = config.plants[plantIdx].name.substring(0, 5);
+                        ctx.fillText(name, x * cellW + cellW/2, y * cellH + cellH/2);
+                    }
+                }
+            }
+        }
+
+        // Interaction Souris pour placer les plantes
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const cellW = canvas.width / config.grid.cols;
+            const cellH = canvas.height / config.grid.rows;
+            
+            const col = Math.floor(x / cellW);
+            const row = Math.floor(y / cellH);
+
+            if (col >= 0 && col < config.grid.cols && row >= 0 && row < config.grid.rows) {
+                const index = row * config.grid.cols + col;
+                // Toggle : si même plante, on enlève, sinon on remplace
+                if (config.gridData[index] === config.selectedPlantIndex) {
+                    config.gridData[index] = -1;
+                } else {
+                    config.gridData[index] = config.selectedPlantIndex;
+                }
+                drawGrid();
+            }
+        });
+
+        document.getElementById('btn-update-grid').addEventListener('click', updateGridConfig);
+
+        /**
+         * LOGIQUE G-CODE & MOTEURS
+         */
+        
+        // Utilitaires de position
+        function getPhysicalCoords(col, row) {
+            const cellPhysW = config.grid.width / config.grid.cols;
+            const cellPhysH = config.grid.height / config.grid.rows;
+            // Centre de la case
+            const x = (col * cellPhysW) + (cellPhysW / 2);
+            const y = (row * cellPhysH) + (cellPhysH / 2);
+            return { x: Math.round(x), y: Math.round(y) };
+        }
+
+        // Envoi Série
+        async function sendGCode(cmd) {
+            log(`> ENVOI: ${cmd}`);
+            if (config.port && config.writer) {
+                try {
+                    const data = new TextEncoder().encode(cmd + '\n');
+                    await config.writer.write(data);
+                } catch (err) {
+                    log(`ERREUR USB: ${err}`);
+                }
+            } else {
+                // Simulation delay
+                await new Promise(r => setTimeout(r, 100)); 
+            }
+        }
+
+        // Fonctions Outils (Tourelle 80°)
+        // 0° = Semoir, 80° = Arrosage, 160° = Désherbeur (supposition logique)
+        async function setTool(toolName) {
+            let angle = 0;
+            if (toolName === 'semoir') angle = 0;
+            else if (toolName === 'arrosage') angle = 80;
+            else if (toolName === 'desherbage') angle = 160;
+
+            await sendGCode(`G0 E${angle}`); // On utilise l'axe E (extrudeur) ou A pour la tourelle
+            log(`[Tourelle] Rotation vers ${toolName} (${angle}°)`);
+        }
+
+        /**
+         * CYCLE 1: SEMIS
+         */
+        async function runSowingCycle() {
+            log("=== DÉBUT CYCLE SEMIS ===");
+            await sendGCode("G28"); // Homing
+            await sendGCode("G90"); // Position absolue
+
+            await setTool('semoir');
+
+            const plantsToSow = [];
+            config.gridData.forEach((plantIdx, gridIdx) => {
+                if (plantIdx !== -1) {
+                    const row = Math.floor(gridIdx / config.grid.cols);
+                    const col = gridIdx % config.grid.cols;
+                    plantsToSow.push({ plantIdx, row, col });
+                }
+            });
+
+            if (plantsToSow.length === 0) {
+                log("Aucune plante sur la grille !");
+                return;
+            }
+
+            for (let item of plantsToSow) {
+                const pName = config.plants[item.plantIdx].name;
+                log(`Traitement: ${pName} en case (${item.col}, ${item.row})`);
+
+                // 1. Chercher la graine
+                // Formule prompt: origine graines (0, 100, -400) puis +100 en Y par plante
+                // Supposons que plantIdx 0 est au slot 1, etc.
+                const seedX = 0;
+                const seedY = 100 + (item.plantIdx * 100);
+                const seedZ = -400; // Position basse prise graine
+
+                // Approche haut
+                await sendGCode(`G0 X${seedX} Y${seedY} Z0`); 
+                // Descente
+                await sendGCode(`G1 Z${seedZ} F1000`);
+                // Pompe vide ON
+                await sendGCode("M106 S255"); // Fan/Pump ON
+                log("[Pompe] Vide activé (Graine saisie)");
+                await new Promise(r => setTimeout(r, 500));
+                // Remonte
+                await sendGCode("G0 Z0");
+
+                // 2. Aller à la case
+                const pos = getPhysicalCoords(item.col, item.row);
+                await sendGCode(`G0 X${pos.x} Y${pos.y}`);
+                
+                // 3. Planter
+                await sendGCode("G1 Z-350 F1000"); // Descente dans la terre (supposé Z-350)
+                // Pompe vide OFF
+                await sendGCode("M107"); // Fan/Pump OFF
+                log("[Pompe] Vide désactivé (Graine plantée)");
+                await new Promise(r => setTimeout(r, 500));
+                // Remonter
+                await sendGCode("G0 Z0");
+            }
+
+            // Retour Home
+            await sendGCode("G28 X0 Y0");
+            log("=== FIN CYCLE SEMIS ===");
+        }
+
+        /**
+         * CYCLE 2: ARROSAGE (Humidité)
+         */
+        async function runWateringCycle() {
+            log("=== CYCLE CONTRÔLE HUMIDITÉ (2H) ===");
+            await sendGCode("G90");
+            await setTool('arrosage');
+
+            const occupiedCells = config.gridData
+                .map((p, i) => ({p, i}))
+                .filter(item => item.p !== -1);
+
+            for (let item of occupiedCells) {
+                const row = Math.floor(item.i / config.grid.cols);
+                const col = item.i % config.grid.cols;
+                const pos = getPhysicalCoords(col, row);
+
+                await sendGCode(`G0 X${pos.x} Y${pos.y} Z-100`); // Position mesure
+                
+                // Simulation capteur
+                log(`... Mesure humidité en X${pos.x} Y${pos.y}`);
+                await new Promise(r => setTimeout(r, 500)); // Temps lecture
+                
+                // Génération aléatoire humidité pour démo
+                const humidity = Math.floor(Math.random() * 60); 
+                log(`[Capteur] Humidité: ${humidity}%`);
+
+                if (humidity < 30) {
+                    log(">>> ALERTE SEC ! Arrosage 20s...");
+                    await sendGCode("M3"); // Pompe eau ON (Spindle ON souvent utilisé pour relais)
+                    // Simulation attente 2s pour la démo au lieu de 20s
+                    log("(Attente 20s simulée accélérée...)");
+                    await new Promise(r => setTimeout(r, 2000)); 
+                    await sendGCode("M5"); // Pompe OFF
+                } else {
+                    log("Humidité OK.");
+                }
+                
+                await sendGCode("G0 Z0"); // Haut
+            }
+            await sendGCode("G28 X0 Y0");
+            log("=== FIN CYCLE ARROSAGE ===");
+        }
+
+        /**
+         * CYCLE 3: DÉSHERBAGE (Vision)
+         */
+        async function runWeedingCycle() {
+            log("=== CYCLE DÉSHERBAGE HEBDOMADAIRE ===");
+            // Vérifier si caméra active
+            if (webcam.paused || webcam.ended) {
+                log("ERREUR: Veuillez activer la caméra d'abord.");
+                return;
+            }
+
+            await setTool('desherbage');
+            
+            const occupiedCells = config.gridData
+                .map((p, i) => ({p, i}))
+                .filter(item => item.p !== -1);
+
+            for (let item of occupiedCells) {
+                const row = Math.floor(item.i / config.grid.cols);
+                const col = item.i % config.grid.cols;
+                const pos = getPhysicalCoords(col, row);
+
+                // Déplacer caméra au dessus
+                log(`Scan visuel en X${pos.x} Y${pos.y}`);
+                await sendGCode(`G0 X${pos.x} Y${pos.y} Z-50`); 
+                
+                // Pause pour stabilisation image
+                await new Promise(r => setTimeout(r, 1000));
+
+                // Analyse Image
+                const isWeed = analyzeImageForWeeds();
+                
+                if (isWeed) {
+                    log(">>> ALERTE: Mauvaise herbe détectée !");
+                    // Action mécanique (ex: descendre outil rotatif)
+                    await sendGCode("G1 Z-350 F1000"); // Descente outil dans terre
+                    await new Promise(r => setTimeout(r, 1000)); // Temps action
+                    await sendGCode("G0 Z0");
+                    log("Désherbage effectué.");
+                } else {
+                    log("Zone propre.");
+                }
+            }
+            await sendGCode("G28 X0 Y0");
+            log("=== FIN CYCLE DÉSHERBAGE ===");
+        }
+
+        function analyzeImageForWeeds() {
+            // Capture du frame actuel sur le canvas caché
+            visionCanvas.width = webcam.videoWidth;
+            visionCanvas.height = webcam.videoHeight;
+            visionCtx.drawImage(webcam, 0, 0);
+            
+            const frame = visionCtx.getImageData(0, 0, visionCanvas.width, visionCanvas.height);
+            const data = frame.data;
+            let greenPixelCount = 0;
+            let totalPixelCount = data.length / 4;
+
+            // Algorithme simple: Si G > R+20 et G > B+20
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                if (g > r + 20 && g > b + 20) {
+                    greenPixelCount++;
+                    // Marquer en vert fluo sur le canvas de vision pour debug
+                    data[i] = 0; data[i+1] = 255; data[i+2] = 0; 
+                }
+            }
+            
+            // Remettre l'image traitée pour visualisation utilisateur
+            visionCtx.putImageData(frame, 0, 0);
+
+            const greenPercentage = (greenPixelCount / totalPixelCount) * 100;
+            const threshold = 35; // Si la plante cultivée couvre > 35%, on désactive la détection (supposition : tout est bon)
+            // L'algo du prompt est un peu complexe: "détection couleur vert en dehors de la zone supposée... désactivé si plante couvre 35%"
+            
+            // Simplification POC: 
+            // Si beaucoup de vert (>35%), on suppose que c'est la plante cultivée saine -> Pas de désherbage (Risque de tuer la plante).
+            // Si un peu de vert (>5% et <35%), on suppose mauvaise herbe (la plante est petite).
+            
+            document.getElementById('weed-status').innerText = `Vert: ${greenPercentage.toFixed(1)}%`;
+
+            if (greenPercentage > 35) {
+                log(`Plante couvre ${greenPercentage.toFixed(1)}% (>35%). Protection active.`);
+                return false; 
+            } else if (greenPercentage > 5) {
+                log(`Vert détecté (${greenPercentage.toFixed(1)}%). Mauvaise herbe probable.`);
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * GESTION WEB SERIAL & CAMERA
+         */
+        document.getElementById('btn-connect').addEventListener('click', async () => {
+            if ("serial" in navigator) {
+                try {
+                    const port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 115200 });
+                    config.port = port;
+                    config.writer = port.writable.getWriter();
+                    config.isSimulating = false;
+                    
+                    statusIndicator.innerText = "Connecté (USB)";
+                    statusIndicator.className = "px-3 py-2 rounded bg-emerald-600 font-mono text-xs flex items-center";
+                    log("Port Série ouvert avec succès.");
+                } catch (err) {
+                    log("Erreur connexion: " + err);
+                    alert("Impossible de connecter le port série. Passage en mode simulation.");
+                }
+            } else {
+                alert("Web Serial API non supporté par ce navigateur (Utilisez Chrome/Edge). Mode Simulation activé.");
+            }
+        });
+
+        document.getElementById('btn-camera-on').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcam.srcObject = stream;
+                log("Caméra activée.");
+            } catch (err) {
+                log("Erreur Caméra: " + err);
+            }
+        });
+
+        /**
+         * UTILITAIRES
+         */
+        function log(msg) {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
+            consoleOut.appendChild(div);
+            consoleOut.scrollTop = consoleOut.scrollHeight;
+        }
+
+        // Setup automatique des périodicités (Désactivé par défaut pour pas spammer la console, activé via boutons)
+        // setInterval(runWateringCycle, 2 * 60 * 60 * 1000); // 2 heures
+
+        // Listeners boutons
+        document.getElementById('btn-start-sowing').onclick = runSowingCycle;
+        document.getElementById('btn-check-water').onclick = runWateringCycle;
+        document.getElementById('btn-check-weed').onclick = runWeedingCycle;
+
+        // Init
+        initUI();
+
+    </script>
+</body>
+</html>
