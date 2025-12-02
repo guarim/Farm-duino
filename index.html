@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNC Farmbot - Interface de Contrôle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #2ecc71;
+        }
+        
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+        
+        .btn-success:hover {
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+        
+        canvas {
+            border: 3px solid #2ecc71;
+            border-radius: 8px;
+            cursor: crosshair;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .plant-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .plant-btn {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .plant-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .plant-btn.selected {
+            border-color: #2ecc71;
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .log {
+            background: #2c3e50;
+            color: #2ecc71;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #ecf0f1;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);
+            width: 0%;
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 CNC Farmbot - Système de Culture Automatisé</h1>
+            <p>Configuration et contrôle de votre système de plantation automatique</p>
+        </div>
+        
+        <div class="content">
+            <!-- Section 1: Configuration -->
+            <div id="section1" class="section active">
+                <h2>📐 Configuration de la Surface</h2>
+                <div class="form-group">
+                    <div class="grid-inputs">
+                        <div>
+                            <label>Longueur (cm):</label>
+                            <input type="number" id="length" value="200" min="50" max="500">
+                        </div>
+                        <div>
+                            <label>Largeur (cm):</label>
+                            <input type="number" id="width" value="200" min="50" max="500">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="grid-inputs">
+                        <div>
+                            <label>Nombre de cases (axe X):</label>
+                            <input type="number" id="gridX" value="4" min="2" max="10">
+                        </div>
+                        <div>
+                            <label>Nombre de cases (axe Y):</label>
+                            <input type="number" id="gridY" value="4" min="2" max="10">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-box" id="surfaceInfo">
+                    <strong>Surface totale:</strong> <span id="totalSurface">0</span> cm²<br>
+                    <strong>Surface par case:</strong> <span id="cellSurface">0</span> cm²
+                </div>
+                
+                <button class="btn btn-success" onclick="goToPlantSelection()">Suivant: Sélection des Plantes →</button>
+            </div>
+            
+            <!-- Section 2: Sélection des plantes -->
+            <div id="section2" class="section">
+                <h2>🌿 Configuration des Plantes</h2>
+                
+                <div class="form-group">
+                    <label>Noms des 6 plantes:</label>
+                    <div class="grid-inputs" style="grid-template-columns: repeat(3, 1fr);">
+                        <input type="text" id="plant1" placeholder="Plante 1" value="Tomate">
+                        <input type="text" id="plant2" placeholder="Plante 2" value="Salade">
+                        <input type="text" id="plant3" placeholder="Plante 3" value="Carotte">
+                        <input type="text" id="plant4" placeholder="Plante 4" value="Radis">
+                        <input type="text" id="plant5" placeholder="Plante 5" value="Basilic">
+                        <input type="text" id="plant6" placeholder="Plante 6" value="Persil">
+                    </div>
+                </div>
+                
+                <div class="plant-selector" id="plantSelector"></div>
+                
+                <div class="info-box">
+                    <strong>Instructions:</strong> Sélectionnez une plante ci-dessus, puis cliquez sur les cases du damier pour placer vos plantes.
+                </div>
+                
+                <canvas id="gridCanvas" width="600" height="600"></canvas>
+                
+                <button class="btn" onclick="goToSection(1)">← Retour</button>
+                <button class="btn btn-success" onclick="startProgram()">Démarrer le Programme 🚀</button>
+            </div>
+            
+            <!-- Section 3: Exécution -->
+            <div id="section3" class="section">
+                <h2>⚙️ Exécution du Programme</h2>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar">0%</div>
+                </div>
+                
+                <div class="status-panel">
+                    <h3>État du Système</h3>
+                    <div class="status-item">
+                        <span>Position Actuelle:</span>
+                        <span id="currentPos">X:0 Y:0 Z:0</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Plante en cours:</span>
+                        <span id="currentPlant">-</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Phase:</span>
+                        <span id="currentPhase">En attente</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Pompe à vide:</span>
+                        <span id="vacuumStatus">OFF</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Pompe arrosage:</span>
+                        <span id="waterStatus">OFF</span>
+                    </div>
+                </div>
+                
+                <div class="log" id="logConsole"></div>
+                
+                <button class="btn btn-danger" onclick="stopProgram()">⏹ Arrêter</button>
+                <button class="btn" onclick="goToSection(2)">← Retour</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let config = {
+            length: 200,
+            width: 200,
+            gridX: 4,
+            gridY: 4,
+            plants: ['Tomate', 'Salade', 'Carotte', 'Radis', 'Basilic', 'Persil']
+        };
+        
+        let gridData = [];
+        let selectedPlant = null;
+        let programRunning = false;
+        let currentPosition = {x: 0, y: 0, z: 0};
+        let monitoringInterval = null;
+        
+        // Couleurs pour les plantes
+        const plantColors = ['#e74c3c', '#2ecc71', '#f39c12', '#e67e22', '#9b59b6', '#3498db'];
+        
+        // Calcul des surfaces
+        function updateSurfaceInfo() {
+            const length = parseFloat(document.getElementById('length').value);
+            const width = parseFloat(document.getElementById('width').value);
+            const gridX = parseInt(document.getElementById('gridX').value);
+            const gridY = parseInt(document.getElementById('gridY').value);
+            
+            const totalSurface = length * width;
+            const cellSurface = totalSurface / (gridX * gridY);
+            
+            document.getElementById('totalSurface').textContent = totalSurface.toFixed(2);
+            document.getElementById('cellSurface').textContent = cellSurface.toFixed(2);
+        }
+        
+        // Écoute des changements
+        ['length', 'width', 'gridX', 'gridY'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateSurfaceInfo);
+        });
+        
+        updateSurfaceInfo();
+        
+        // Navigation entre sections
+        function goToSection(num) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('section' + num).classList.add('active');
+        }
+        
+        function goToPlantSelection() {
+            // Sauvegarder la config
+            config.length = parseFloat(document.getElementById('length').value);
+            config.width = parseFloat(document.getElementById('width').value);
+            config.gridX = parseInt(document.getElementById('gridX').value);
+            config.gridY = parseInt(document.getElementById('gridY').value);
+            
+            // Récupérer les noms des plantes
+            config.plants = [];
+            for (let i = 1; i <= 6; i++) {
+                const plantName = document.getElementById('plant' + i).value || 'Plante ' + i;
+                config.plants.push(plantName);
+            }
+            
+            // Initialiser la grille
+            initGrid();
+            drawGrid();
+            createPlantSelector();
+            
+            goToSection(2);
+        }
+        
+        // Initialisation de la grille
+        function initGrid() {
+            gridData = [];
+            for (let y = 0; y < config.gridY; y++) {
+                gridData[y] = [];
+                for (let x = 0; x < config.gridX; x++) {
+                    gridData[y][x] = null;
+                }
+            }
+        }
+        
+        // Création du sélecteur de plantes
+        function createPlantSelector() {
+            const selector = document.getElementById('plantSelector');
+            selector.innerHTML = '';
+            
+            config.plants.forEach((plant, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'plant-btn';
+                btn.textContent = plant;
+                btn.style.borderColor = plantColors[idx];
+                btn.onclick = () => selectPlant(idx, btn);
+                selector.appendChild(btn);
+            });
+        }
+        
+        function selectPlant(idx, btn) {
+            document.querySelectorAll('.plant-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedPlant = idx;
+        }
+        
+        // Dessin du damier
+        function drawGrid() {
+            const canvas = document.getElementById('gridCanvas');
+            const ctx = canvas.getContext('2d');
+            const cellWidth = canvas.width / config.gridX;
+            const cellHeight = canvas.height / config.gridY;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dessiner les cases
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    const posX = x * cellWidth;
+                    const posY = y * cellHeight;
+                    
+                    // Couleur de fond
+                    if (gridData[y][x] !== null) {
+                        ctx.fillStyle = plantColors[gridData[y][x]];
+                        ctx.fillRect(posX, posY, cellWidth, cellHeight);
+                    }
+                    
+                    // Bordure
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(posX, posY, cellWidth, cellHeight);
+                    
+                    // Texte
+                    if (gridData[y][x] !== null) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(config.plants[gridData[y][x]], posX + cellWidth/2, posY + cellHeight/2);
+                    }
+                }
+            }
+        }
+        
+        // Gestion des clics sur le canvas
+        document.getElementById('gridCanvas').addEventListener('click', function(e) {
+            if (selectedPlant === null) return;
+            
+            const canvas = this;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const cellWidth = canvas.width / config.gridX;
+            const cellHeight = canvas.height / config.gridY;
+            
+            const gridX = Math.floor(x / cellWidth);
+            const gridY = Math.floor(y / cellHeight);
+            
+            if (gridX >= 0 && gridX < config.gridX && gridY >= 0 && gridY < config.gridY) {
+                gridData[gridY][gridX] = selectedPlant;
+                drawGrid();
+            }
+        });
+        
+        // Démarrage du programme
+        function startProgram() {
+            // Vérifier qu'au moins une plante est placée
+            let hasPlants = false;
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    if (gridData[y][x] !== null) {
+                        hasPlants = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!hasPlants) {
+                alert('Veuillez placer au moins une plante avant de démarrer le programme.');
+                return;
+            }
+            
+            programRunning = true;
+            goToSection(3);
+            log('🚀 Démarrage du programme de plantation automatique');
+            log('📡 Connexion à l\'Arduino via USB...');
+            
+            setTimeout(() => {
+                log('✓ Arduino connecté');
+                executeProgram();
+            }, 1000);
+        }
+        
+        // Exécution du programme
+        async function executeProgram() {
+            log('🌱 Phase 1: Plantation des graines');
+            
+            const cellWidth = config.length / config.gridX;
+            const cellHeight = config.width / config.gridY;
+            const seedPositions = [0, 100, 200, 300, 400, 500]; // Positions Y des 6 supports
+            
+            let progress = 0;
+            let totalCells = 0;
+            
+            // Compter le nombre de cases à planter
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    if (gridData[y][x] !== null) totalCells++;
+                }
+            }
+            
+            let planted = 0;
+            
+            // Planter chaque graine
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    if (gridData[y][x] !== null) {
+                        const plantIdx = gridData[y][x];
+                        const plantName = config.plants[plantIdx];
+                        
+                        // Calculer position au centre de la case
+                        const targetX = (x + 0.5) * cellWidth;
+                        const targetY = (y + 0.5) * cellHeight;
+                        
+                        document.getElementById('currentPlant').textContent = plantName;
+                        document.getElementById('currentPhase').textContent = 'Récupération graine';
+                        
+                        // Aller chercher la graine
+                        log(`🔄 Déplacement vers support graine: ${plantName}`);
+                        await moveToPosition(0, seedPositions[plantIdx], -400);
+                        
+                        log('🔽 Activation pompe à vide');
+                        document.getElementById('vacuumStatus').textContent = 'ON';
+                        await delay(500);
+                        
+                        document.getElementById('currentPhase').textContent = 'Transport graine';
+                        log(`➡️  Déplacement vers position (${targetX.toFixed(1)}, ${targetY.toFixed(1)})`);
+                        await moveToPosition(targetX, targetY, 0);
+                        
+                        document.getElementById('currentPhase').textContent = 'Plantation';
+                        log('🌱 Plantation de la graine');
+                        await moveToPosition(targetX, targetY, -50);
+                        
+                        log('🔴 Arrêt pompe à vide');
+                        document.getElementById('vacuumStatus').textContent = 'OFF';
+                        await delay(300);
+                        
+                        await moveToPosition(targetX, targetY, 0);
+                        
+                        planted++;
+                        progress = (planted / totalCells) * 100;
+                        updateProgress(progress);
+                        
+                        log(`✓ Plante ${planted}/${totalCells} plantée: ${plantName}`);
+                    }
+                }
+            }
+            
+            log('✓ Phase plantation terminée');
+            log('⏰ Démarrage du système de surveillance');
+            
+            // Retour position origine
+            await moveToPosition(0, 0, 0);
+            document.getElementById('currentPhase').textContent = 'Surveillance active';
+            
+            // Démarrer la surveillance
+            startMonitoring();
+        }
+        
+        // Déplacement en G-code
+        async function moveToPosition(x, y, z) {
+            const steps = 20;
+            const startX = currentPosition.x;
+            const startY = currentPosition.y;
+            const startZ = currentPosition.z;
+            
+            for (let i = 0; i <= steps; i++) {
+                const progress = i / steps;
+                currentPosition.x = startX + (x - startX) * progress;
+                currentPosition.y = startY + (y - startY) * progress;
+                currentPosition.z = startZ + (z - startZ) * progress;
+                
+                const gcode = `G1 X${currentPosition.x.toFixed(2)} Y${currentPosition.y.toFixed(2)} Z${currentPosition.z.toFixed(2)} F3000`;
+                document.getElementById('currentPos').textContent = 
+                    `X:${currentPosition.x.toFixed(1)} Y:${currentPosition.y.toFixed(1)} Z:${currentPosition.z.toFixed(1)}`;
+                
+                await delay(50);
+            }
+        }
+        
+        // Surveillance
+        function startMonitoring() {
+            log('📊 Surveillance: Contrôle humidité toutes les 2 heures');
+            log('📷 Surveillance: Détection mauvaises herbes hebdomadaire');
+            
+            // Simulation contrôle humidité (toutes les 10 secondes pour démo)
+            monitoringInterval = setInterval(() => {
+                checkHumidity();
+            }, 10000);
+            
+            // Simulation contrôle mauvaises herbes (toutes les 30 secondes pour démo)
+            setInterval(() => {
+                checkWeeds();
+            }, 30000);
+        }
+        
+        async function checkHumidity() {
+            const cellWidth = config.length / config.gridX;
+            const cellHeight = config.width / config.gridY;
+            
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    if (gridData[y][x] !== null) {
+                        const humidity = Math.random() * 100;
+                        const targetX = (x + 0.5) * cellWidth;
+                        const targetY = (y + 0.5) * cellHeight;
+                        
+                        if (humidity < 30) {
+                            log(`💧 Humidité faible détectée (${humidity.toFixed(1)}%) - Case (${x},${y})`);
+                            await moveToPosition(targetX, targetY, -30);
+                            log('💦 Activation arrosage (20s)');
+                            document.getElementById('waterStatus').textContent = 'ON';
+                            await delay(2000); // Simulé 20s
+                            document.getElementById('waterStatus').textContent = 'OFF';
+                            log('✓ Arrosage terminé');
+                        }
+                    }
+                }
+            }
+        }
+        
+        function checkWeeds() {
+            log('📷 Vérification présence mauvaises herbes...');
+            
+            for (let y = 0; y < config.gridY; y++) {
+                for (let x = 0; x < config.gridX; x++) {
+                    if (gridData[y][x] !== null) {
+                        const plantCoverage = Math.random() * 100;
+                        
+                        if (plantCoverage < 30) {
+                            const weedsDetected = Math.random() > 0.7;
+                            
+                            if (weedsDetected) {
+                                log(`⚠️  Mauvaises herbes détectées - Case (${x},${y})`);
+                                log('🔴 Action requise: Désherbage manuel recommandé');
+                            }
+                        } else {
+                            log(`✓ Case (${x},${y}) - Couverture ${plantCoverage.toFixed(0)}% - Contrôle désactivé`);
+                        }
+                    }
+                }
+            }
+        }
+        
+        function stopProgram() {
+            programRunning = false;
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+            }
+            log('🛑 Programme arrêté par l\'utilisateur');
+            document.getElementById('currentPhase').textContent = 'Arrêté';
+        }
+        
+        // Fonctions utilitaires
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        function log(message) {
+            const logConsole = document.getElementById('logConsole');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${timestamp}] ${message}`;
+            logConsole.appendChild(entry);
+            logConsole.scrollTop = logConsole.scrollHeight;
+        }
+        
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percent + '%';
+            progressBar.textContent = percent.toFixed(0) + '%';
+        }
+    </script>
+</body>
+</html>
