@@ -793,3 +793,146 @@
                     gcode += `; Semis (${i},${j}) - Plante ${plantType}\n`;
                     gcode += `G0 Z0\nG0 X0 Y${yTool} Z-400\nG1 Z-450 F100\n`;
                     gcode += `M3 P1\nG4 P500\nG0 Z0\n`;
+                    gcode += `G0 X${xCenter.toFixed(2)} Y${yCenter.toFixed(2)} Z0\n`;
+                    gcode += `G1 Z-200 F100\nM5\nG0 Z0\n\n`;
+                }
+            }
+
+            const blob = new Blob([gcode], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'farmbot_semis.gcode';
+            a.click();
+            log('✓ G-Code généré');
+        }
+
+        function startWatering() {
+            log('💧 Cycle arrosage démarré');
+            alert('Fonction arrosage activée');
+        }
+
+        function startWeedDetection() {
+            log('🌿 Détection mauvaises herbes activée');
+            if (!videoStream) {
+                alert('⚠ Démarrez la caméra d\'abord');
+                return;
+            }
+        }
+
+        async function startVision() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 320, height: 240 } 
+                });
+                log('✓ Caméra démarrée');
+                processVideo();
+            } catch (error) {
+                log(`✗ Erreur caméra: ${error.message}`);
+            }
+        }
+
+        function stopVision() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+                if (animationId) cancelAnimationFrame(animationId);
+                
+                // Clear canvases
+                const videoCanvas = document.getElementById('videoCanvas');
+                const maskCanvas = document.getElementById('maskCanvas');
+                videoCanvas.getContext('2d').clearRect(0, 0, 320, 240);
+                maskCanvas.getContext('2d').clearRect(0, 0, 320, 240);
+                
+                log('✓ Caméra arrêtée');
+            }
+        }
+
+        function processVideo() {
+            const video = document.createElement('video');
+            video.srcObject = videoStream;
+            video.play();
+
+            const videoCanvas = document.getElementById('videoCanvas');
+            const maskCanvas = document.getElementById('maskCanvas');
+            const videoCtx = videoCanvas.getContext('2d');
+            const maskCtx = maskCanvas.getContext('2d');
+
+            function draw() {
+                if (!videoStream) return;
+
+                videoCtx.drawImage(video, 0, 0, 320, 240);
+                
+                const imageData = videoCtx.getImageData(0, 0, 320, 240);
+                const data = imageData.data;
+                const maskData = maskCtx.createImageData(320, 240);
+
+                const centerX = 160;
+                const centerY = 120;
+                const exclusionRadius = 30;
+
+                let weedPixels = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    const pixelX = (i / 4) % 320;
+                    const pixelY = Math.floor((i / 4) / 320);
+                    const dist = Math.sqrt((pixelX - centerX) ** 2 + (pixelY - centerY) ** 2);
+
+                    const isGreen = g > r + 20 && g > b + 20 && g > 80;
+
+                    if (isGreen && dist > exclusionRadius) {
+                        maskData.data[i] = 0;
+                        maskData.data[i + 1] = 255;
+                        maskData.data[i + 2] = 0;
+                        maskData.data[i + 3] = 255;
+                        weedPixels++;
+                    } else {
+                        maskData.data[i] = 20;
+                        maskData.data[i + 1] = 20;
+                        maskData.data[i + 2] = 20;
+                        maskData.data[i + 3] = 255;
+                    }
+                }
+
+                maskCtx.putImageData(maskData, 0, 0);
+
+                // Exclusion zone
+                maskCtx.strokeStyle = '#ff0000';
+                maskCtx.lineWidth = 2;
+                maskCtx.beginPath();
+                maskCtx.arc(centerX, centerY, exclusionRadius, 0, 2 * Math.PI);
+                maskCtx.stroke();
+
+                // Center crosshair
+                maskCtx.strokeStyle = '#ffff00';
+                maskCtx.lineWidth = 1;
+                maskCtx.beginPath();
+                maskCtx.moveTo(centerX - 15, centerY);
+                maskCtx.lineTo(centerX + 15, centerY);
+                maskCtx.moveTo(centerX, centerY - 15);
+                maskCtx.lineTo(centerX, centerY + 15);
+                maskCtx.stroke();
+
+                // Display weed detection count
+                if (weedPixels > 100) {
+                    maskCtx.fillStyle = '#ff0000';
+                    maskCtx.font = 'bold 14px Arial';
+                    maskCtx.fillText(`⚠ Mauvaises herbes: ${weedPixels}px`, 10, 20);
+                }
+
+                animationId = requestAnimationFrame(draw);
+            }
+
+            video.onloadedmetadata = () => draw();
+        }
+
+        // Initial draw
+        drawGrid();
+        log('✓ Système prêt');
+    </script>
+</body>
+</html>
