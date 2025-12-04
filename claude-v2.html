@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmBot Control Interface</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a472a 0%, #2d5016 50%, #1a472a 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+            padding: 15px;
+            max-width: 1800px;
+            margin: 0 auto;
+            height: 100vh;
+        }
+        
+        h1 { 
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #fff;
+            font-size: 2.2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+        }
+        
+        /* COLONNE GAUCHE - PARAMÈTRES */
+        .left-panel {
+            background: linear-gradient(135deg, #2c5f2d 0%, #4a7c4e 100%);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+        
+        .left-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .left-panel::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        
+        .left-panel::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+        
+        .section {
+            background: rgba(255,255,255,0.95);
+            padding: 18px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #6fbf73;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: #2c5f2d;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .input-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-field label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2c5f2d;
+            font-size: 0.9em;
+        }
+        
+        .input-field input {
+            padding: 10px;
+            border: 2px solid #c8e6c9;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .input-field input:focus {
+            outline: none;
+            border-color: #6fbf73;
+            box-shadow: 0 0 0 3px rgba(111,191,115,0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #6fbf73 0%, #5aa85d 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(111,191,115,0.3);
+            width: 100%;
+            margin-top: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(111,191,115,0.4);
+            background: linear-gradient(135deg, #5aa85d 0%, #4a9051 100%);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* PLANTES */
+        .plant-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .plant-btn {
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .plant-btn:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .plant-btn.selected {
+            background: linear-gradient(135deg, #6fbf73 0%, #5aa85d 100%);
+            color: white;
+            border-color: #4a9051;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(111,191,115,0.4);
+        }
+        
+        .plant-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* COLONNE CENTRE - GRILLE */
+        .center-panel {
+            background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .center-panel h2 {
+            color: #2c5f2d;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            text-align: center;
+        }
+        
+        .grid-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        canvas#gridCanvas {
+            border: 4px solid #2c5f2d;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .grid-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .grid-controls button {
+            margin: 0;
+        }
+        
+        /* COLONNE DROITE - DEBUG */
+        .right-panel {
+            background: linear-gradient(135deg, #1e3a2c 0%, #2d5016 100%);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+        
+        .right-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .right-panel::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        
+        .right-panel::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+        
+        .debug-section {
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #ffa726;
+        }
+        
+        .debug-section h3 {
+            color: #e65100;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+        
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .status-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .status-indicator.connected { 
+            background: #4caf50;
+            box-shadow: 0 0 12px #4caf50;
+        }
+        
+        .status-indicator.disconnected { 
+            background: #f44336;
+            box-shadow: 0 0 12px #f44336;
+        }
+        
+        .sensor-display {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .sensor-item {
+            background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+            padding: 12px;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sensor-label {
+            font-weight: 600;
+            color: #2c5f2d;
+        }
+        
+        .sensor-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sensor-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #6fbf73;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        .sensor-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            margin: 0;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 50%;
+        }
+        
+        .debug-console {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+            border: 2px solid #333;
+        }
+        
+        .debug-console::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .debug-console::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+        
+        .debug-console::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+        
+        /* SECTION VIDÉO EN BAS */
+        .video-section {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #2c5f2d 0%, #4a7c4e 100%);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .video-section h2 {
+            color: white;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.4em;
+        }
+        
+        .video-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .video-controls button {
+            width: auto;
+            margin: 0;
+        }
+        
+        .vision-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .vision-panel {
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .vision-panel h3 {
+            color: #2c5f2d;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        
+        .vision-panel canvas {
+            width: 100%;
+            height: auto;
+            border: 3px solid #6fbf73;
+            border-radius: 6px;
+            display: block;
+            background: #000;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135d135deg, #d32f2f 0%, #c62828 100%);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>🌱 FarmBot Control Interface</h1>
+
+        <!-- COLONNE GAUCHE - PARAMÈTRES -->
+        <div class="left-panel">
+            <!-- Configuration Grille -->
+            <div class="section">
+                <h2>📐 Configuration Grille</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Longueur (L) mm:</label>
+                        <input type="number" id="length" value="900" min="100">
+                    </div>
+                    <div class="input-field">
+                        <label>Largeur (W) mm:</label>
+                        <input type="number" id="width" value="400" min="100">
+                    </div>
+                    <div class="input-field">
+                        <label>Cases Axe-X (Nx):</label>
+                        <input type="number" id="nx" value="9" min="1" max="20">
+                    </div>
+                    <div class="input-field">
+                        <label>Cases Axe-Y (Ny):</label>
+                        <input type="number" id="ny" value="4" min="1" max="20">
+                    </div>
+                </div>
+                <button onclick="createGrid()">Créer la Grille</button>
+            </div>
+
+            <!-- Configuration Plantes -->
+            <div class="section">
+                <h2>🌿 Plantes</h2>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label>Plante 1:</label>
+                        <input type="text" id="plant1" value="Tomate">
+                    </div>
+                    <div class="input-field">
+                        <label>Plante 2:</label>
+                        <input type="text" id="plant2" value="Salade">
+                    </div>
+                    <div class="input-field">
+                        <label>Plante 3:</label>
+                        <input type="text" id="plant3" value="Carotte">
+                    </div>
+                    <div class="input-field">
+                        <label>Plante 4:</label>
+                        <input type="text" id="plant4" value="Radis">
+                    </div>
+                    <div class="input-field">
+                        <label>Plante 5:</label>
+                        <input type="text" id="plant5" value="Poivron">
+                    </div>
+                    <div class="input-field">
+                        <label>Plante 6:</label>
+                        <input type="text" id="plant6" value="Basilic">
+                    </div>
+                </div>
+                <button onclick="updatePlantSelector()">Mettre à jour</button>
+            </div>
+
+            <!-- Sélection Plante -->
+            <div class="section">
+                <h2>🎯 Sélection</h2>
+                <div class="plant-selector" id="plantSelector"></div>
+            </div>
+        </div>
+
+        <!-- COLONNE CENTRE - GRILLE -->
+        <div class="center-panel">
+            <h2>🎨 Grille de Culture</h2>
+            <div class="grid-wrapper">
+                <canvas id="gridCanvas" width="900" height="400"></canvas>
+            </div>
+            <div class="grid-controls">
+                <button onclick="generateGCode()">📄 G-Code</button>
+                <button class="btn-primary" onclick="startWatering()">💧 Arrosage</button>
+                <button class="btn-danger" onclick="startWeedDetection()">🌿 Désherbage</button>
+            </div>
+        </div>
+
+        <!-- COLONNE DROITE - DEBUG -->
+        <div class="right-panel">
+            <!-- Arduino -->
+            <div class="debug-section">
+                <h3>🔌 Arduino</h3>
+                <div class="status-row">
+                    <span class="status-indicator disconnected" id="statusIndicator"></span>
+                    <span id="statusText">Déconnecté</span>
+                </div>
+                <button class="btn-primary" id="connectBtn" onclick="connectArduino()">Connecter</button>
+            </div>
+
+            <!-- Capteurs -->
+            <div class="debug-section">
+                <h3>📡 Capteurs Position</h3>
+                <div class="sensor-display">
+                    <div class="sensor-item">
+                        <span class="sensor-label">Axe X (C0)</span>
+                        <div class="sensor-controls">
+                            <button class="sensor-btn" onclick="adjustSensor('X', -1)">−</button>
+                            <span class="sensor-value" id="sensorX">0</span>
+                            <button class="sensor-btn" onclick="adjustSensor('X', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="sensor-item">
+                        <span class="sensor-label">Axe Y (C1)</span>
+                        <div class="sensor-controls">
+                            <button class="sensor-btn" onclick="adjustSensor('Y', -1)">−</button>
+                            <span class="sensor-value" id="sensorY">0</span>
+                            <button class="sensor-btn" onclick="adjustSensor('Y', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="sensor-item">
+                        <span class="sensor-label">Axe Z (C2)</span>
+                        <div class="sensor-controls">
+                            <button class="sensor-btn" onclick="adjustSensor('Z', -1)">−</button>
+                            <span class="sensor-value" id="sensorZ">0</span>
+                            <button class="sensor-btn" onclick="adjustSensor('Z', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console -->
+            <div class="debug-section">
+                <h3>🐛 Console</h3>
+                <div class="debug-console" id="debugConsole">> Système initialisé...</div>
+            </div>
+        </div>
+
+        <!-- SECTION VIDÉO EN BAS -->
+        <div class="video-section">
+            <h2>📹 Système de Vision</h2>
+            <div class="video-controls">
+                <button class="btn-primary" onclick="startVision()">▶ Démarrer Caméra</button>
+                <button class="btn-danger" onclick="stopVision()">⏹ Arrêter Caméra</button>
+            </div>
+            <div class="vision-container">
+                <div class="vision-panel">
+                    <h3>📷 Vidéo Réelle</h3>
+                    <canvas id="videoCanvas" width="320" height="240"></canvas>
+                </div>
+                <div class="vision-panel">
+                    <h3>🌿 Détection Mauvaises Herbes</h3>
+                    <canvas id="maskCanvas" width="320" height="240"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let gridData = [];
+        let selectedPlant = null;
+        let L = 900, W = 400, Nx = 9, Ny = 4;
+        let sensorX = 0, sensorY = 0, sensorZ = 0;
+        let arduinoConnected = false;
+        let port = null;
+        let videoStream = null;
+        let animationId = null;
+        const plantColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#00b894'];
+
+        // Initialize
+        createGrid();
+        updatePlantSelector();
+
+        function log(message) {
+            const console = document.getElementById('debugConsole');
+            const time = new Date().toLocaleTimeString();
+            console.innerHTML += `\n[${time}] ${message}`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function updatePlantSelector() {
+            const selector = document.getElementById('plantSelector');
+            selector.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const plantName = document.getElementById(`plant${i}`).value;
+                const btn = document.createElement('button');
+                btn.className = 'plant-btn';
+                btn.innerHTML = `<div class="plant-color" style="background: ${plantColors[i-1]}"></div>${i}. ${plantName}`;
+                btn.onclick = () => selectPlant(i);
+                selector.appendChild(btn);
+            }
+        }
+
+        function selectPlant(plantNum) {
+            selectedPlant = plantNum;
+            document.querySelectorAll('.plant-btn').forEach((btn, idx) => {
+                btn.classList.toggle('selected', idx === plantNum - 1);
+            });
+            log(`✓ Plante ${plantNum} sélectionnée: ${document.getElementById(`plant${plantNum}`).value}`);
+        }
+
+        function createGrid() {
+            L = parseFloat(document.getElementById('length').value);
+            W = parseFloat(document.getElementById('width').value);
+            Nx = parseInt(document.getElementById('nx').value);
+            Ny = parseInt(document.getElementById('ny').value);
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            gridData = Array(Nx).fill().map(() => Array(Ny).fill(0));
+            
+            log(`✓ Grille créée: ${Nx}x${Ny} (${cellWidth.toFixed(1)}x${cellHeight.toFixed(1)}mm)`);
+            updatePlantSelector();
+            drawGrid();
+        }
+
+        function drawGrid() {
+            const canvas = document.getElementById('gridCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = L;
+            canvas.height = W;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            // Draw cells
+            for (let i = 0; i < Nx; i++) {
+                for (let j = 0; j < Ny; j++) {
+                    const x = i * cellWidth;
+                    const y = j * cellHeight;
+
+                    // Fill cell
+                    if (gridData[i][j] > 0) {
+                        ctx.fillStyle = plantColors[gridData[i][j] - 1] + '60';
+                        ctx.fillRect(x, y, cellWidth, cellHeight);
+                    }
+
+                    // Grid lines
+                    ctx.strokeStyle = '#2c5f2d';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+                    // Center marker
+                    const centerX = x + cellWidth / 2;
+                    const centerY = y + cellHeight / 2;
+                    ctx.fillStyle = '#2c5f2d';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+
+            // Position indicator
+            const posX = sensorX * cellWidth + cellWidth / 2;
+            const posY = sensorY * cellHeight + cellHeight / 2;
+
+            // Z indicator (bleu=haut, rouge=bas)
+            ctx.fillStyle = sensorZ === 0 ? 'rgba(33, 150, 243, 0.5)' : 'rgba(244, 67, 54, 0.5)';
+            ctx.beginPath();
+            ctx.arc(posX, posY, 20, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.strokeStyle = sensorZ === 0 ? '#2196f3' : '#f44336';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(posX, posY, 20, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Crosshair
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(posX - 10, posY);
+            ctx.lineTo(posX + 10, posY);
+            ctx.moveTo(posX, posY - 10);
+            ctx.lineTo(posX, posY + 10);
+            ctx.stroke();
+
+            canvas.onclick = (e) => {
+                if (!selectedPlant) {
+                    alert('⚠ Sélectionnez une plante d\'abord!');
+                    return;
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+                const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+                const i = Math.floor(clickX / cellWidth);
+                const j = Math.floor(clickY / cellHeight);
+
+                if (i >= 0 && i < Nx && j >= 0 && j < Ny) {
+                    gridData[i][j] = selectedPlant;
+                    const plantName = document.getElementById(`plant${selectedPlant}`).value;
+                    log(`✓ Case (${i},${j}) = ${plantName}`);
+                    drawGrid();
+                }
+            };
+        }
+
+        function adjustSensor(axis, delta) {
+            if (axis === 'X') {
+                sensorX = Math.max(0, Math.min(Nx - 1, sensorX + delta));
+                document.getElementById('sensorX').textContent = sensorX;
+            } else if (axis === 'Y') {
+                sensorY = Math.max(0, Math.min(Ny - 1, sensorY + delta));
+                document.getElementById('sensorY').textContent = sensorY;
+            } else if (axis === 'Z') {
+                sensorZ = Math.max(0, Math.min(2, sensorZ + delta));
+                document.getElementById('sensorZ').textContent = sensorZ;
+            }
+            log(`→ Capteur ${axis}: ${eval('sensor' + axis)}`);
+            drawGrid();
+        }
+
+        async function connectArduino() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                arduinoConnected = true;
+                document.getElementById('statusIndicator').className = 'status-indicator connected';
+                document.getElementById('statusText').textContent = 'Connecté';
+                log('✓ Arduino connecté');
+            } catch (error) {
+                log(`✗ Erreur: ${error.message}`);
+            }
+        }
+
+        function generateGCode() {
+            let gcode = '; FarmBot Semis G-Code\n';
+            gcode += `; Grille: ${Nx}x${Ny}, Surface: ${L}x${W}mm\n\n`;
+
+            const cellWidth = L / Nx;
+            const cellHeight = W / Ny;
+
+            for (let i = 0; i < Nx; i++) {
+                for (let j = 0; j < Ny; j++) {
+                    const plantType = gridData[i][j];
+                    if (plantType === 0) continue;
+
+                    const xCenter = i * cellWidth + cellWidth / 2;
+                    const yCenter = j * cellHeight + cellHeight / 2;
+                    const yTool = plantType * 100;
+
+                    gcode += `; Semis (${i},${j}) - Plante ${plantType}\n`;
+                    gcode += `G0 Z0\nG0 X0 Y${yTool} Z-400\nG1 Z-450 F100\n`;
+                    gcode += `M3 P1\nG4 P500\nG0 Z0\n`;
