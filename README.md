@@ -54,3 +54,49 @@ Sauvegardez le code dans un fichier .html.
 Ouvrez-le avec Chrome ou Edge (Firefox ne supporte pas Web Serial par défaut).
 
 Pour tester la caméra et le port série, utilisez un serveur local (ex: extension "Live Server" de VS Code) ou http://localhost, car ces API sont bloquées sur les fichiers locaux simples (file://) pour des raisons de sécurité.
+
+J'ai créé une configuration Marlin complète pour votre FarmBot basé sur la carte DiscoEasy200 de Dagoma. Voici les points clés :
+
+🎯 Configuration Principale
+Dimensions adaptées :
+
+X = 1600 mm (longueur)
+Y = 650 mm (largeur)
+Z = 600 mm (hauteur)
+
+Origine (POM) configurée :
+
+Z en position HAUTE (Z_HOME_DIR = 1, utilise Z_MAX_PLUG)
+X et Y au coin GAUCHE (X_HOME_DIR = -1, Y_HOME_DIR = -1)
+Correspond exactement à la grille de l'interface web !
+
+🔧 Spécificités FarmBot
+Système de coordonnées :
+
+(0, 0, 0) = Coin gauche avant, Z en haut
+X augmente vers la droite
+Y augmente vers l'arrière
+Z diminue vers le bas (0 = haut, -600 = bas maximum)
+
+Pins pour accessoires :
+
+Pompe à vide : Pin 9 (FAN) - Contrôlée par M3/M5
+Pompe arrosage : Pin 8 (BED) - Contrôlée par M106/M107
+Capteur humidité : Pin A0 - Lecture analogique
+
+📋 Procédure d'installation
+
+Télécharger Marlin 2.x depuis marlinfw.org
+Remplacer Configuration.h par ce fichier
+Compiler avec Arduino IDE ou PlatformIO
+Flasher la carte DiscoEasy200
+
+✅ Tests de calibration
+gcodeG28           // Homing (Z monte, X et Y vont à gauche)
+G1 X100 Y100  // Test déplacement
+M3 P1         // Test pompe à vide
+M106 S255     // Test pompe arrosage
+M119          // Vérifier endstops
+Le firmware est prêt à être compilé et flashé ! 🌱🤖
+
+
